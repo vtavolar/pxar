@@ -12,7 +12,7 @@ ClassImp(PixTestPhOptimization)
 
 PixTestPhOptimization::PixTestPhOptimization() {}
 
-PixTestPhOptimization::PixTestPhOptimization( PixSetup *a, std::string name ) :  PixTest(a, name), fParNtrig(-1), fParDAC("nada"), fParDacVal(100),   fFlagSinglePix(true) {
+PixTestPhOptimization::PixTestPhOptimization( PixSetup *a, std::string name ) :  PixTest(a, name), fParNtrig(-1), fParDAC("nada"), fParDacVal(100),   fFlagSinglePix(true), fSafetyMargin(20) {
   PixTest::init();
   init();
 }
@@ -32,6 +32,11 @@ bool PixTestPhOptimization::setParameter(string parName, string sval) {
 	setTestParameter("ntrig", sval); 
 	fParNtrig = atoi( sval.c_str() );
 	LOG(logDEBUG) << "  setting fParNtrig  ->" << fParNtrig
+		      << "<- from sval = " << sval;
+      }
+      if (!parName.compare("safetymargin")) {
+	fSafetyMargin = atoi( sval.c_str() );
+	LOG(logDEBUG) << "  setting fSafetyMargin  ->" << fSafetyMargin
 		      << "<- from sval = " << sval;
       }
       if (!parName.compare("singlepix")) {
@@ -139,11 +144,6 @@ void PixTestPhOptimization::doTest() {
     minpixel.row    = randomPix.row;
     LOG(logDEBUG)<<"random pixel: "<<maxpixel<<", "<<minpixel<<"is not on the blacklist";
     //retrieving info from the vcal thr map for THIS random pixel
-    for(std::vector<pxar::pixel>::iterator thrit = thrmap.begin(); thrit != thrmap.end(); thrit++){
-      if(thrit->column == randomPix.column && thrit->row == randomPix.row){
-	minthr=static_cast<int>(thrit->getValue());
-      }
-    }
   }
   else{
     LOG(logDEBUG)<<"**********Ph range will be optimised on the whole ROC***********";
@@ -152,6 +152,13 @@ void PixTestPhOptimization::doTest() {
     // getting pixel showing the largest vcal threshold (i.e., all other pixels are responding)
     GetMinPixel(minpixel, thrmap, badPixels);
   }
+
+  for(std::vector<pxar::pixel>::iterator thrit = thrmap.begin(); thrit != thrmap.end(); thrit++){
+    if(thrit->column == minpixel.column && thrit->row == minpixel.row){
+      minthr=static_cast<int>(thrit->getValue());
+    }
+  }
+
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
   fApi->_dut->testPixel(maxpixel.column,maxpixel.row,true);
@@ -179,6 +186,7 @@ void PixTestPhOptimization::doTest() {
   fApi->_dut->testPixel(minpixel.column,minpixel.row,true);
   fApi->_dut->maskPixel(minpixel.column,minpixel.row,false);
   minthr = (minthr==255) ? (minthr) : (minthr + 5); 
+  LOG(logDEBUG)<<"minthr, i.e. vcal value where PH is sampled on the low edge, is: "<<minthr;
   //minthr = 50;
   fApi->setDAC("ctrlreg",4);
   fApi->setDAC("vcal",minthr);
@@ -295,8 +303,52 @@ void PixTestPhOptimization::doTest() {
   fHistList.push_back(h1);  
 
 
+
+  LOG(logDEBUG)<<"PH map for min vcal will now be done";
+  std::vector<pxar::pixel> phMapMinVcal;
+  fApi->_dut->testAllPixels(true);
+  fApi->_dut->maskAllPixels(false);
+  fApi->setDAC("ctrlreg",4);
+  fApi->setDAC("vcal",minthr);
+  fApi->setDAC("phscale",ps_opt);
+  fApi->setDAC("phoffset",po_opt);
+  phMapMinVcal = fApi->getPulseheightMap(0, 10);
+  TH2D *h2(0); 
+  name  = Form("PhMapMinVcal_SM%d", fSafetyMargin);
+  h2 = bookTH2D(name, "PhMap at lower edge vcal value", 80, 0., 80., 52, 0., 52.);
+  for(std::vector<pxar::pixel>::iterator px = phMapMinVcal.begin(); px != phMapMinVcal.end(); px++) {
+    h2->Fill(px->row, px->column, px->getValue());
+  }
+  for(std::vector<std::pair<int, int> >::iterator bad_it = badPixels.begin(); bad_it != badPixels.end(); bad_it++){
+	h2->SetBinContent(h2->GetXaxis()->FindBin(bad_it->second), h2->GetYaxis()->FindBin(bad_it->first), -1);
+  }
+  //  hists.insert(make_pair("PhMapMinVcal", h2));
+  fHistList.push_back(h2);
+  fHistOptions.insert(make_pair(h2, "colz"));
+
+  LOG(logDEBUG)<<"PH map for max vcal will now be done";
+  std::vector<pxar::pixel> phMapMaxVcal;
+  fApi->setDAC("ctrlreg",4);
+  fApi->setDAC("vcal",250);
+  phMapMaxVcal = fApi->getPulseheightMap(0, 10);
+  TH2D *h3(0); 
+  name  = Form("PhMapMaxVcal_SM%d", fSafetyMargin);
+  h3 = bookTH2D(name, "PhMap at upper edge vcal value", 80, 0., 80., 52, 0., 52.);
+  for(std::vector<pxar::pixel>::iterator px = phMapMaxVcal.begin(); px != phMapMaxVcal.end(); px++) {
+    h3->Fill(px->row, px->column, px->getValue());
+  }
+  for(std::vector<std::pair<int, int> >::iterator bad_it = badPixels.begin(); bad_it != badPixels.end(); bad_it++){
+	h3->SetBinContent(h3->GetXaxis()->FindBin(bad_it->second), h3->GetYaxis()->FindBin(bad_it->first), -1);
+  }
+  fHistList.push_back(h3);
+  fHistOptions.insert(make_pair(h3, "colz"));
+  
+
+  LOG(logDEBUG)<<"Just before entering DynamicRange()";
+  DynamicRange();
+
   for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
-    (*il)->Draw();
+    (*il)->Draw(getHistOption(*il).c_str());
     PixTest::update();
   }
   fDisplayedHist = find(fHistList.begin(), fHistList.end(), h1);
@@ -318,6 +370,52 @@ void PixTestPhOptimization::doTest() {
   LOG(logINFO) << "PH offset (per ROC): " << poString;
 
 }
+
+void PixTestPhOptimization::DynamicRange(){
+  LOG(logDEBUG)<<"Welcome tu DynamicRange subtest";
+
+  fApi->setDAC("ctrlreg", 4); 
+  
+  TH1D *h1= new TH1D("h1", "h1", 255, 0., 255.);
+  TH2D *h2(0);
+  string name;
+  double range;
+  name  = Form("PhMapDynamicRange_SM%d", fSafetyMargin);
+  h2 = bookTH2D(name, "Map of dynamic range for optimized PH", 80, 0., 80., 52, 0., 52.);
+  vector<pair<uint8_t, vector<pixel> > > result;
+  fApi->_dut->testAllPixels(false);
+  fApi->_dut->maskAllPixels(true);
+  for (unsigned int ir = 0; ir <80 ; ++ir) {
+    for (unsigned int ic = 0; ic < 52; ++ic) {
+      LOG(logDEBUG)<<"Preparing to have PHvsVcal for pix "<<ic<<","<<ir;
+      fApi->_dut->testPixel(ic, ir, true);
+      fApi->_dut->maskPixel(ic, ir, false);
+      result = fApi->getPulseheightVsDAC("vcal", 0, 255, FLAG_FORCE_MASKED, 10);
+      LOG(logDEBUG)<<"PHvsVcal for pix "<<ic<<","<<ir<<" acquired";
+      LOG(logDEBUG)<<"Size of PHvsVcal vector is "<<result.size();
+      for (int ires=0; ires< result.size(); ires++){
+	pair<uint8_t, vector<pixel> > v = result[ires];
+	int idac = v.first;
+	vector<pixel> vpix = v.second;
+	LOG(logDEBUG)<<"Size of pixel vector is "<<vpix.size();
+	for(int ipix=0; ipix<vpix.size(); ipix++){
+	  h1->Fill(idac, vpix[0].getValue());
+	}
+      }
+      range =  h1->GetBinContent(h1->GetMaximumBin()) - h1->GetMinimum(0.1);
+      h2->Fill(ir, ic, range);
+
+      h1->Reset();
+      fApi->_dut->testAllPixels(false);
+      fApi->_dut->maskAllPixels(true);
+    }
+  }
+
+  fHistList.push_back(h2);
+  fHistOptions.insert(make_pair(h2, "colz"));
+
+}
+
 
 void PixTestPhOptimization::BlacklistPixels(std::vector<std::pair<int, int> > &badPixels, int aliveTrig){
   //makes a list of inefficient pixels, to be avoided during optimization
@@ -346,6 +444,7 @@ void PixTestPhOptimization::BlacklistPixels(std::vector<std::pair<int, int> > &b
   }
   setDacs("vcal", vVcal); 
   setDacs("ctrlreg", vCreg); 
+  LOG(logDEBUG)<<"Number of bad pixels found: "<<badPixels.size();
 }
 
 
@@ -527,7 +626,8 @@ int PixTestPhOptimization::StretchPH(int po_opt, int ps_opt_in,  std::vector< st
   int minPh(0);
   bool lowEd=false, upEd=false;
   int upEd_dist=255, lowEd_dist=255;
-  int safetyMargin = 10;
+  int safetyMargin = fSafetyMargin;
+  LOG(logDEBUG)<<"safety margin for stretching set to "<<fSafetyMargin;
   int dist = 255;
   int bestDist = 255;
   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > >::iterator dacit_max = dacdac_max.begin();

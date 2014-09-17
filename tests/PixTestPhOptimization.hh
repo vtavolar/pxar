@@ -19,6 +19,7 @@ public:
   int InsideRangePH(int po_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
   int CentrePhRange(int po_opt, int ps_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
   int StretchPH(int po_opt, int ps_opt_in,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
+  void DynamicRange();
   void doTest(); 
 
 private:
@@ -27,6 +28,7 @@ private:
   std::string fParDAC; 
   int     fParDacVal;
   bool fFlagSinglePix;
+  int fSafetyMargin;
 
   ClassDef(PixTestPhOptimization, 1)
 
