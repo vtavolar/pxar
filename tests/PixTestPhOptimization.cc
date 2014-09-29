@@ -344,8 +344,8 @@ void PixTestPhOptimization::doTest() {
   fHistOptions.insert(make_pair(h3, "colz"));
   
 
-  LOG(logDEBUG)<<"Just before entering DynamicRange()";
-  DynamicRange();
+//  LOG(logDEBUG)<<"Just before entering DynamicRange()";
+//  DynamicRange();
 
   for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
     (*il)->Draw(getHistOption(*il).c_str());
