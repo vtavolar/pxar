@@ -101,8 +101,9 @@ void PixTestPhOptimization::doTest() {
   TH1D *h1(0); 
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
   LOG(logDEBUG)<<"Enabled ROCs vector has size: "<<rocIds.size();
-  for(int iroc=0; iroc < rocIds.size(); iroc++){
-    LOG(logDEBUG)<<"ROC "<<rocIds[iroc]<<" is enabled";
+  LOG(logDEBUG)<<"ROC "<<(int)rocIds[0]<<" is enabled";
+  for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
+    LOG(logDEBUG)<<"ROC "<<(int)rocIds[iroc]<<" is enabled";
   }
   map<string, TH1D*> hists; 
   string name, title;
@@ -110,7 +111,7 @@ void PixTestPhOptimization::doTest() {
   //looking for inefficient pixels, so that they can be avoided
   std::vector<std::pair<uint8_t, pair<int,int> > > badPixels;
   BlacklistPixels(badPixels, 10);
-  /*
+
   //vcal threshold map in order to choose the low-vcal value the PH will be sampled at
   fApi->_dut->testAllPixels(true);
   fApi->_dut->maskAllPixels(false);
@@ -145,15 +146,15 @@ void PixTestPhOptimization::doTest() {
       LOG(logDEBUG)<<"**********Ph range will be optimised on a single random pixel***********";
       pxar::pixel randomPix;
       randomPix= *(RandomPixel(badPixels, rocIds[iroc]));
-      LOG(logDEBUG)<<"In doTest(), randomCol "<<(int)randomPix.column<<", randomRow "<<(int)randomPix.row<<", pixel "<<randomPix;
+      LOG(logDEBUG)<<"In doTest(), randomCol "<<(int)randomPix.column()<<", randomRow "<<(int)randomPix.row()<<", pixel "<<randomPix;
       maxpixel.first = rocIds[iroc]; 
-      maxpixel.second.roc_id = rocIds[iroc];
-      maxpixel.second.column = randomPix.column;
-      maxpixel.second.row    = randomPix.row;
+      maxpixel.second.setRoc(rocIds[iroc]);
+      maxpixel.second.setColumn(randomPix.column());
+      maxpixel.second.setRow(randomPix.row());
       minpixel.first = rocIds[iroc]; 
-      minpixel.second.roc_id = rocIds[iroc];
-      minpixel.second.column = randomPix.column;
-      minpixel.second.row    = randomPix.row;
+      minpixel.second.setRoc(rocIds[iroc]);
+      minpixel.second.setColumn(randomPix.column());
+      minpixel.second.setRow(randomPix.row());
       LOG(logDEBUG)<<"random pixel: "<<maxpixel.second<<", "<<minpixel.second<<"is not on the blacklist";
       maxpixels.push_back(maxpixel);
       minpixels.push_back(minpixel);
@@ -172,9 +173,9 @@ void PixTestPhOptimization::doTest() {
   std::vector<pair<uint8_t, int> > minthrs;
   for(std::vector<pxar::pixel>::iterator thrit = thrmap.begin(); thrit != thrmap.end(); thrit++){
     for(std::vector<std::pair<int, pxar::pixel> >::iterator minp_it = minpixels.begin(); minp_it != minpixels.end(); minp_it++){
-      if(thrit->column == minp_it->second.column && thrit->row == minp_it->second.row && thrit->roc_id==minp_it->first){
-	minthr=static_cast<int>(thrit->getValue());
-	minthrs.push_back(make_pair(thrit->roc_id, minthr));
+      if(thrit->column() == minp_it->second.column() && thrit->row() == minp_it->second.row() && thrit->roc()==minp_it->first){
+	minthr=static_cast<int>(thrit->value());
+	minthrs.push_back(make_pair(thrit->roc(), minthr));
       }
     }
   }
@@ -182,8 +183,8 @@ void PixTestPhOptimization::doTest() {
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
   for(std::vector<std::pair<int, pxar::pixel> >::iterator maxp_it = maxpixels.begin(); maxp_it != maxpixels.end(); maxp_it++){
-    fApi->_dut->testPixel(maxp_it->second.column,maxp_it->second.row,true, maxp_it->second.roc_id );
-    fApi->_dut->maskPixel(maxp_it->second.column,maxp_it->second.row,false, maxp_it->second.roc_id);
+    fApi->_dut->testPixel(maxp_it->second.column(),maxp_it->second.row(),true, maxp_it->second.roc() );
+    fApi->_dut->maskPixel(maxp_it->second.column(),maxp_it->second.row(),false, maxp_it->second.roc());
   } 
   fApi->setDAC("vcal",255);
   fApi->setDAC("ctrlreg",4);
@@ -206,14 +207,14 @@ void PixTestPhOptimization::doTest() {
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
   for(std::vector<std::pair<int, pxar::pixel> >::iterator minp_it = minpixels.begin(); minp_it != minpixels.end(); minp_it++){
-    fApi->_dut->testPixel(minp_it->second.column,minp_it->second.row,true);
-    fApi->_dut->maskPixel(minp_it->second.column,minp_it->second.row,false);
+    fApi->_dut->testPixel(minp_it->second.column(),minp_it->second.row(),true);
+    fApi->_dut->maskPixel(minp_it->second.column(),minp_it->second.row(),false);
   }
-  minthr = (minthr==255) ? (minthr) : (minthr + 5); 
 
   fApi->setDAC("ctrlreg",4);
   for( std::vector<pair<uint8_t, int> >::iterator thr_it = minthrs.begin(); thr_it != minthrs.end(); thr_it++){
-    fApi->setDAC("vcal", thr_it->second, thr_it->first);
+  minthr = (thr_it->second==255) ? (thr_it->second) : (thr_it->second + 5); 
+    fApi->setDAC("vcal", minthr, thr_it->first);
     LOG(logDEBUG)<<"minthr, i.e. vcal value where PH is sampled on the low edge, is: "<<thr_it->second<<" for ROC "<<thr_it->first;
   }
   //scanning through offset and scale for min pixel (or same randpixel)
@@ -243,7 +244,7 @@ void PixTestPhOptimization::doTest() {
   //check for opt failing
   for(int roc_it = 0; roc_it < rocIds.size(); roc_it++){
     if(ps_opt[rocIds[roc_it]]==999){
-      LOG(logDEBUG)<<"PH optimization failed on ROC "<<rocIds[roc_it]<<endl<<"Please run PreTest or try PhOptimization on a random pixel";
+      LOG(logDEBUG)<<"PH optimization failed on ROC "<<(int)rocIds[roc_it]<<endl<<"Please run PreTest or try PhOptimization on a random pixel";
     }
   }
   //2. centring PH curve adjusting phoffset
@@ -251,20 +252,20 @@ void PixTestPhOptimization::doTest() {
   
   //3. stretching curve adjusting phscale
   ps_opt = StretchPH(po_opt, ps_opt, dacdac_max, dacdac_min);
-  */
+  
   /*
   fApi->setDAC("ctrlreg",4);
   fApi->setDAC("phscale",ps_opt);
   fApi->setDAC("phoffset",po_opt);
   //draw PH curve for max and min pixel
-  name  = Form("PH_c%d_r%d_C%d", maxpixel.column, maxpixel.row, 0);
-  title = Form("PH_c%d_r%d_C%d, phscale = %d, phoffset = %d, maxpixel", maxpixel.column, maxpixel.row, 0, ps_opt, po_opt);
+  name  = Form("PH_c%d_r%d_C%d", maxpixel.column(), maxpixel.row(), 0);
+  title = Form("PH_c%d_r%d_C%d, phscale = %d, phoffset = %d, maxpixel", maxpixel.column(), maxpixel.row(), 0, ps_opt, po_opt);
   h1 = bookTH1D(name, name, 256, 0., 256.);
   vector<pair<uint8_t, vector<pixel> > > results;
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
-  fApi->_dut->testPixel(maxpixel.column, maxpixel.row, true);
-  fApi->_dut->maskPixel(maxpixel.column, maxpixel.row, false);
+  fApi->_dut->testPixel(maxpixel.column(), maxpixel.row(), true);
+  fApi->_dut->maskPixel(maxpixel.column(), maxpixel.row(), false);
   cnt = 0; 
   done = false;
   while (!done) {
@@ -284,8 +285,8 @@ void PixTestPhOptimization::doTest() {
       int idac = v.first; 
       vector<pixel> vpix = v.second;
       for (unsigned int ipix = 0; ipix < vpix.size(); ++ipix) {
-	if (vpix[ipix].roc_id == rocIds[iroc]) {
-	  h1->Fill(idac, vpix[ipix].getValue());
+	if (vpix[ipix].roc() == rocIds[iroc]) {
+	  h1->Fill(idac, vpix[ipix].value());
 	}
       }
     }
@@ -297,13 +298,13 @@ void PixTestPhOptimization::doTest() {
 
   results.clear();
   
-  name  = Form("PH_c%d_r%d_C%d", minpixel.column, minpixel.row, 0);
-  title = Form("PH_c%d_r%d_C%d, phscale = %d, phoffset = %d, minpixel", minpixel.column, minpixel.row, 0, ps_opt, po_opt);
+  name  = Form("PH_c%d_r%d_C%d", minpixel.column(), minpixel.row(), 0);
+  title = Form("PH_c%d_r%d_C%d, phscale = %d, phoffset = %d, minpixel", minpixel.column(), minpixel.row(), 0, ps_opt, po_opt);
   h1 = bookTH1D(name, name, 256, 0., 256.);
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
-  fApi->_dut->testPixel(minpixel.column, minpixel.row, true);
-  fApi->_dut->maskPixel(minpixel.column, minpixel.row, false);
+  fApi->_dut->testPixel(minpixel.column(), minpixel.row(), true);
+  fApi->_dut->maskPixel(minpixel.column(), minpixel.row(), false);
   cnt = 0; 
   done = false;
   while (!done) {
@@ -323,8 +324,8 @@ void PixTestPhOptimization::doTest() {
       int idac = v.first; 
       vector<pixel> vpix = v.second;
       for (unsigned int ipix = 0; ipix < vpix.size(); ++ipix) {
-	if (vpix[ipix].roc_id == rocIds[iroc]) {
-	  h1->Fill(idac, vpix[ipix].getValue());
+	if (vpix[ipix].roc() == rocIds[iroc]) {
+	  h1->Fill(idac, vpix[ipix].value());
 	}
       }
     }
@@ -349,7 +350,7 @@ void PixTestPhOptimization::doTest() {
   name  = Form("PhMapMinVcal_SM%d", fSafetyMargin);
   h2 = bookTH2D(name, "PhMap at lower edge vcal value", 80, 0., 80., 52, 0., 52.);
   for(std::vector<pxar::pixel>::iterator px = phMapMinVcal.begin(); px != phMapMinVcal.end(); px++) {
-    h2->Fill(px->row, px->column, px->getValue());
+    h2->Fill(px->row(), px->column(), px->value());
   }
   for(std::vector<std::pair<int, int> >::iterator bad_it = badPixels.begin(); bad_it != badPixels.end(); bad_it++){
 	h2->SetBinContent(h2->GetXaxis()->FindBin(bad_it->second), h2->GetYaxis()->FindBin(bad_it->first), -1);
@@ -367,7 +368,7 @@ void PixTestPhOptimization::doTest() {
   name  = Form("PhMapMaxVcal_SM%d", fSafetyMargin);
   h3 = bookTH2D(name, "PhMap at upper edge vcal value", 80, 0., 80., 52, 0., 52.);
   for(std::vector<pxar::pixel>::iterator px = phMapMaxVcal.begin(); px != phMapMaxVcal.end(); px++) {
-    h3->Fill(px->row, px->column, px->getValue());
+    h3->Fill(px->row(), px->column(), px->value());
   }
   for(std::vector<std::pair<int, int> >::iterator bad_it = badPixels.begin(); bad_it != badPixels.end(); bad_it++){
 	h3->SetBinContent(h3->GetXaxis()->FindBin(bad_it->second), h3->GetYaxis()->FindBin(bad_it->first), -1);
@@ -433,7 +434,7 @@ void PixTestPhOptimization::DynamicRange(){
 	vector<pixel> vpix = v.second;
 	LOG(logDEBUG)<<"Size of pixel vector is "<<vpix.size();
 	for(int ipix=0; ipix<vpix.size(); ipix++){
-	  h1->Fill(idac, vpix[0].getValue());
+	  h1->Fill(idac, vpix[0].value());
 	}
       }
       range =  h1->GetBinContent(h1->GetMaximumBin()) - h1->GetMinimum(0.1);
@@ -468,11 +469,11 @@ void PixTestPhOptimization::BlacklistPixels(std::vector<std::pair<uint8_t, pair<
       for(int c=0; c<52; c++){
 	eff = testEff[rocIds[rocid]]->GetBinContent( testEff[rocIds[rocid]]->FindFixBin((double)c + 0.5, (double)r+0.5) );
 	if(eff<aliveTrig){
-	  LOG(logDEBUG)<<"Pixel ["<<rocid<<", "<<c<<", "<<r<<"] has eff "<<eff<<"/"<<aliveTrig;
+	  LOG(logDEBUG)<<"Pixel ["<<(int)rocIds[rocid]<<", "<<c<<", "<<r<<"] has eff "<<eff<<"/"<<aliveTrig;
 	  badPix.first = rocIds[rocid];
 	  badPix.second.first = c;
 	  badPix.second.second = r;
-	  LOG(logDEBUG)<<"bad Pixel found and blacklisted: ["<<badPix.first<<", "<<badPix.second.first<<", "<<badPix.second.second;
+	  LOG(logDEBUG)<<"bad Pixel found and blacklisted: ["<<(int)badPix.first<<", "<<badPix.second.first<<", "<<badPix.second.second;
 	  (badPixels).push_back(badPix);
 	}
       }
@@ -503,10 +504,10 @@ pxar::pixel* PixTestPhOptimization::RandomPixel(std::vector<std::pair<uint8_t, p
     }
     LOG(logDEBUG)<<"is the random pixel good? "<<isPixGood;
   }while(!isPixGood);
-  randPixel->roc_id = iroc;
-  randPixel->column = random_col;
-  randPixel->row    = random_row;
-  LOG(logDEBUG)<<"In RandomPixel(), rocId "<<iroc<<", randomCol "<<(int)randPixel->column<<", randomRow "<<(int)randPixel->row<<", pixel "<<randPixel;
+  randPixel->setRoc(iroc);
+  randPixel->setColumn(random_col);
+  randPixel->setRow(random_row);
+  LOG(logDEBUG)<<"In RandomPixel(), rocId "<<iroc<<", randomCol "<<(int)randPixel->column()<<", randomRow "<<(int)randPixel->row()<<", pixel "<<randPixel;
   return randPixel;
 }
 
@@ -519,7 +520,7 @@ void PixTestPhOptimization::GetMaxPhPixel(vector<pair <int, pxar::pixel > > &max
     bool isPixGood=true;
     int maxph = 255;
     /*********changed to test module w v2 chips***** put it back at 255 later********/
-    int init_phScale =25;
+    int init_phScale =255;
     int flag_maxPh=0;
     pair<int, pxar::pixel> maxpixel;
     maxpixel.second.setValue(0);
@@ -549,17 +550,17 @@ void PixTestPhOptimization::GetMaxPhPixel(vector<pair <int, pxar::pixel > > &max
       for(std::vector<pxar::pixel>::iterator px = result.begin(); px != result.end(); px++) {
 	isPixGood=true;
 	for(std::vector<std::pair<uint8_t, pair<int, int> > >::iterator bad_it = badPixels.begin(); bad_it != badPixels.end(); bad_it++){
-	  if(bad_it->second.first == px->column && bad_it->second.second == px->row && bad_it->first == px->roc_id){
+	  if(bad_it->second.first == px->column() && bad_it->second.second == px->row() && bad_it->first == px->roc()){
 	    isPixGood=false;
 	  }
 	}
-	if(isPixGood && px->getValue() > maxph){
-	  maxph = px->getValue();
+	if(isPixGood && px->value() > maxph){
+	  maxph = px->value();
 	}
       }
       //should have flag for v2 or v2.1
       /*********changed to test module w v2 chips***** put it back at -=5 later********/
-      init_phScale+=5;
+      init_phScale-=5;
       flag_maxPh++;
     }
     
@@ -571,16 +572,16 @@ void PixTestPhOptimization::GetMaxPhPixel(vector<pair <int, pxar::pixel > > &max
       for(std::vector<pxar::pixel>::iterator px = result.begin(); px != result.end(); px++) {
 	isPixGood=true;
 	//maybe FindPix (whatever) function??
-	if(px->getValue() > maxph && px->roc_id == rocIds[iroc]){
+	if(px->value() > maxph && px->roc() == rocIds[iroc]){
 	  for(std::vector<std::pair<uint8_t, pair<int, int> > >::iterator bad_it = badPixels.begin(); bad_it != badPixels.end(); bad_it++){
-	    if(bad_it->second.first == px->column && bad_it->second.second == px->row && bad_it->first == px->roc_id){
+	    if(bad_it->second.first == px->column() && bad_it->second.second == px->row() && bad_it->first == px->roc()){
 	      isPixGood=false;
 	      break;
 	    }
 	  }
 	  if(isPixGood){
 	    maxpixel = make_pair(rocIds[iroc],*px);
-	    maxph = px->getValue();
+	    maxph = px->value();
 	    }
 	}
       }
@@ -603,19 +604,19 @@ void PixTestPhOptimization::GetMinPixel(vector<pair<int, pxar::pixel> > &minpixe
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
   for(int iroc=0; iroc<rocIds.size(); iroc++){
     for(std::vector<pxar::pixel>::iterator thrit = thrmap.begin(); thrit != thrmap.end(); thrit++){
-      if(thrit->roc_id != rocIds[iroc]){
+      if(thrit->roc() != rocIds[iroc]){
 	continue;
       }
       isPixGood=true;
       for(std::vector<std::pair<uint8_t, pair<int, int> > >::iterator bad_it = badPixels.begin(); bad_it != badPixels.end(); bad_it++){
-	if(bad_it->second.first == thrit->column && bad_it->second.second == thrit->row && bad_it->first ==  thrit->roc_id){
+	if(bad_it->second.first == thrit->column() && bad_it->second.second == thrit->row() && bad_it->first ==  thrit->roc()){
 	  isPixGood=false;
 	  break;
 	}
       }
-      if(thrit->getValue() > minthr && isPixGood) {
+      if(thrit->value() > minthr && isPixGood) {
 	minpixel = *thrit;
-	minthr = static_cast<int>(minpixel.getValue());
+	minthr = static_cast<int>(minpixel.value());
 	
       }
     }
@@ -640,16 +641,17 @@ map<uint8_t, int> PixTestPhOptimization::InsideRangePH(map<uint8_t,int> po_opt, 
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
   for(int roc_it = 0; roc_it < rocIds.size(); roc_it++){
     bestDist[rocIds[roc_it]] = 255;
+    LOG(logDEBUG)<<"Bestdist at roc_it "<<roc_it<<" initialized with "<<bestDist[roc_it]<<" "<<bestDist[rocIds[roc_it]];
     ps_opt[rocIds[roc_it]] = 999;
   }
   for(std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > >::iterator dacit_max = dacdac_max.begin(); dacit_max != dacdac_max.end(); dacit_max++){
     for(std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > >::iterator dacit_min = dacdac_min.begin(); dacit_min != dacdac_min.end(); dacit_min++){
-      //	if(dacit_max->second.second.roc_id != rocIds[roc_it] || dacit_min->second.second.roc_id != rocIds[roc_it]){continue;}
+      //	if(dacit_max->second.second.roc() != rocIds[roc_it] || dacit_min->second.second.roc() != rocIds[roc_it]){continue;}
       for(int pix=0; pix < dacit_min->second.second.size() && pix < dacit_max->second.second.size(); pix++){
-	if(dacit_max->first == po_opt[dacit_max->second.second[pix].roc_id] && dacit_min->first == po_opt[dacit_min->second.second[pix].roc_id] && dacit_min->second.second.size() && dacit_max->second.second.size()) {
-	  maxPh=dacit_max->second.second[pix].getValue();
-	  minPh=dacit_min->second.second[pix].getValue();
-	  if(dacit_max->second.second[pix].roc_id != dacit_min->second.second[pix].roc_id){
+	if(dacit_max->first == po_opt[dacit_max->second.second[pix].roc()] && dacit_min->first == po_opt[dacit_min->second.second[pix].roc()] && dacit_min->second.second.size() && dacit_max->second.second.size()) {
+	  maxPh=dacit_max->second.second[pix].value();
+	  minPh=dacit_min->second.second[pix].value();
+	  if(dacit_max->second.second[pix].roc() != dacit_min->second.second[pix].roc()){
 	    LOG(logDEBUG) << "InsideRangePH: ROC ids do not correspond";
 	  }
 	  lowEd = (minPh > safetyMargin);
@@ -657,16 +659,16 @@ map<uint8_t, int> PixTestPhOptimization::InsideRangePH(map<uint8_t,int> po_opt, 
 	  upEd_dist = abs(maxPh - (255 - safetyMargin));
 	  lowEd_dist = abs(minPh - safetyMargin);
 	  dist = (upEd_dist > lowEd_dist ) ? (upEd_dist) : (lowEd_dist);
-	  if(dist < bestDist[dacit_max->second.second[pix].roc_id] && upEd && lowEd){
-	    ps_opt[dacit_max->second.second[pix].roc_id] = dacit_max->second.first;
-	    bestDist[dacit_max->second.second[pix].roc_id]=dist;
+	  if(dist < bestDist[dacit_max->second.second[pix].roc()] && upEd && lowEd){
+	    ps_opt[dacit_max->second.second[pix].roc()] = dacit_max->second.first;
+	    bestDist[dacit_max->second.second[pix].roc()]=dist;
 	  }
 	}
       }
     }
   }
   for(int roc_it = 0; roc_it < rocIds.size(); roc_it++){
-    LOG(logDEBUG)<<"opt step 1: po fixed to"<<po_opt[rocIds[roc_it]]<<" and scale adjusted to "<<ps_opt[rocIds[roc_it]]<<" for ROC "<<rocIds[roc_it]<<", with distance "<<bestDist[rocIds[roc_it]];
+    LOG(logDEBUG)<<"opt step 1: po fixed to"<<po_opt[rocIds[roc_it]]<<" and scale adjusted to "<<ps_opt[rocIds[roc_it]]<<" for ROC "<<(int)rocIds[roc_it]<<", with distance "<<bestDist[rocIds[roc_it]];
   }
   return ps_opt;
 }
@@ -681,30 +683,36 @@ map<uint8_t, int> PixTestPhOptimization::InsideRangePH(map<uint8_t,int> po_opt, 
   int minPh(0);
   int dist = 255;
   map<uint8_t, int> bestDist;
-  LOG(logDEBUG)<<"Initializing bestDist map with 255";
+  //  LOG(logDEBUG)<<"Initializing bestDist map with 255";
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
   for(int roc_it = 0; roc_it < rocIds.size(); roc_it++){
     bestDist[rocIds[roc_it]] = 255;
   }
   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > >::iterator dacit_max = dacdac_max.begin();
   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > >::iterator dacit_min = dacdac_min.begin();
+  int pixsize=0;
   //or two for cycles??
   while(dacit_max != dacdac_max.end() || dacit_min != dacdac_min.end()){
     //    LOG(logDEBUG)<<"Looping over max and min PH maps, step "<<dacdac_max.end() - dacit_max;
     //    for(int pix=0; pix < dacit_min->second.second.size() && pix < dacit_max->second.second.size(); pix++){
-    for(int pix=0; pix < rocIds.size(); pix++){
+    pixsize = dacit_min->second.second.size();
+    //    LOG(logDEBUG)<<"pix vector size is "<<pixsize;
+    //    for(int pix=0; pix < rocIds.size(); pix++){
+    for(int pix=0; pix < pixsize; pix++){
       //LOG(logDEBUG)<<"Looping over pixels enabled, step "<<pix<<", vector size is "<<dacit_max->second.second.size();
-      if(dacit_max->second.first == ps_opt[dacit_max->second.second[pix].roc_id] && dacit_min->second.first == ps_opt[dacit_min->second.second[pix].roc_id] ){
-	maxPh=dacit_max->second.second[pix].getValue();
-	minPh=dacit_min->second.second[pix].getValue();
-	LOG(logDEBUG)<<"Max and min PHs are "<<maxPh<<" "<<minPh;
-	if(dacit_max->second.second[pix].roc_id != dacit_min->second.second[pix].roc_id){
+      if(dacit_max->second.first == ps_opt[dacit_max->second.second[pix].roc()] && dacit_min->second.first == ps_opt[dacit_min->second.second[pix].roc()] ){
+	maxPh=dacit_max->second.second[pix].value();
+	minPh=dacit_min->second.second[pix].value();
+	//	LOG(logDEBUG)<<"Max and min PHs are "<<maxPh<<" "<<minPh<<" for ps_opt "<<ps_opt[dacit_min->second.second[pix].roc()];
+	if(dacit_max->second.second[pix].roc() != dacit_min->second.second[pix].roc()){
 	  LOG(logDEBUG) << "CentrePhRange: ROC ids do not correspond";
 	}
 	dist = abs(minPh - (255 - maxPh));
-	if (dist < bestDist[dacit_max->second.second[pix].roc_id]){
-	  po_opt[dacit_max->second.second[pix].roc_id] = dacit_max->first;
-	  bestDist[dacit_max->second.second[pix].roc_id] = dist;
+	//LOG(logDEBUG)<<"dist for po = "<<  po_opt[dacit_max->second.second[pix].roc()] <<"is "<<dist;
+	if (dist < bestDist[dacit_max->second.second[pix].roc()]){
+	  po_opt[dacit_max->second.second[pix].roc()] = dacit_max->first;
+	  bestDist[dacit_max->second.second[pix].roc()] = dist;
+	  //LOG(logDEBUG)<<"New bestdist = "<<bestDist[dacit_max->second.second[pix].roc()]<<"found for po = "<<  po_opt[dacit_max->second.second[pix].roc()];
 	} 
       }
       dacit_max++;
@@ -712,7 +720,7 @@ map<uint8_t, int> PixTestPhOptimization::InsideRangePH(map<uint8_t,int> po_opt, 
     }
   }
   for(int roc_it = 0; roc_it < rocIds.size(); roc_it++){
-    LOG(logDEBUG)<<"opt centring step: po "<<po_opt[rocIds[roc_it]]<<" and scale "<<ps_opt[rocIds[roc_it]]<<" on ROC "<<rocIds[roc_it]<<", with distance "<<bestDist[rocIds[roc_it]];
+    LOG(logDEBUG)<<"opt centring step: po "<<po_opt[rocIds[roc_it]]<<" and scale "<<ps_opt[rocIds[roc_it]]<<", with distance "<<bestDist[rocIds[roc_it]]<<" on ROC "<<(int)rocIds[roc_it];
   }
   return po_opt;
 }
@@ -737,10 +745,10 @@ map<uint8_t, int> PixTestPhOptimization::StretchPH(map<uint8_t, int> po_opt, map
   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > >::iterator dacit_min = dacdac_min.begin();
   while(dacit_max != dacdac_max.end() || dacit_min != dacdac_min.end()){
     for(int pix=0; pix < dacit_min->second.second.size() && pix < dacit_max->second.second.size(); pix++){
-      if(dacit_max->first == po_opt[dacit_max->second.second[pix].roc_id] && dacit_min->first == po_opt[dacit_min->second.second[pix].roc_id]){
-	maxPh=dacit_max->second.second[pix].getValue();
-	minPh=dacit_min->second.second[pix].getValue();
-	if(dacit_max->second.second[pix].roc_id != dacit_min->second.second[pix].roc_id){
+      if(dacit_max->first == po_opt[dacit_max->second.second[pix].roc()] && dacit_min->first == po_opt[dacit_min->second.second[pix].roc()]){
+	maxPh=dacit_max->second.second[pix].value();
+	minPh=dacit_min->second.second[pix].value();
+	if(dacit_max->second.second[pix].roc() != dacit_min->second.second[pix].roc()){
 	  LOG(logDEBUG) << "CentrePhRange: ROC ids do not correspond";
 	}
 	lowEd = (minPh > safetyMargin);
@@ -748,9 +756,9 @@ map<uint8_t, int> PixTestPhOptimization::StretchPH(map<uint8_t, int> po_opt, map
 	upEd_dist = abs(maxPh - (255 - safetyMargin));
 	lowEd_dist = abs(minPh - safetyMargin);
 	dist = (upEd_dist < lowEd_dist ) ? (upEd_dist) : (lowEd_dist);
-	if(dist < bestDist[dacit_max->second.second[pix].roc_id] && lowEd && upEd){
-	  ps_opt[dacit_max->second.second[pix].roc_id] = dacit_max->second.first;
-	  bestDist[dacit_max->second.second[pix].roc_id]=dist;
+	if(dist < bestDist[dacit_max->second.second[pix].roc()] && lowEd && upEd){
+	  ps_opt[dacit_max->second.second[pix].roc()] = dacit_max->second.first;
+	  bestDist[dacit_max->second.second[pix].roc()]=dist;
 	}
       }
     }
@@ -758,7 +766,7 @@ map<uint8_t, int> PixTestPhOptimization::StretchPH(map<uint8_t, int> po_opt, map
     dacit_min++;
   }
   for(int roc_it = 0; roc_it < rocIds.size(); roc_it++){
-    LOG(logDEBUG)<<"opt final step: po fixed to"<<po_opt[rocIds[roc_it]]<<" and scale adjusted to "<<ps_opt[rocIds[roc_it]]<<" on ROC "<<rocIds[roc_it]<<", with distance "<<bestDist[rocIds[roc_it]];
+    LOG(logDEBUG)<<"opt final step: po fixed to"<<po_opt[rocIds[roc_it]]<<" and scale adjusted to "<<ps_opt[rocIds[roc_it]]<<", with distance "<<bestDist[rocIds[roc_it]]<<" on ROC "<<(int)rocIds[roc_it];
   }
   return ps_opt;
 }
