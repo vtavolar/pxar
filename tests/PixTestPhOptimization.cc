@@ -219,6 +219,8 @@ void PixTestPhOptimization::doTest() {
     done = (cnt>5) || done;
   }
 
+  LOG(logDEBUG)<<"Size of dacdac_max phmap is "<<dacdac_max.size();
+
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
   for(std::map<int, pxar::pixel>::iterator minp_it = minpixels.begin(); minp_it != minpixels.end(); minp_it++){
@@ -251,6 +253,8 @@ void PixTestPhOptimization::doTest() {
   }
 
   
+  LOG(logDEBUG)<<"Size of dacdac_min phmap is "<<dacdac_min.size();
+
 
   //search for optimal dac values in 3 steps
   //1. shrinking the PH to be completely inside the ADC range, adjusting phscale
