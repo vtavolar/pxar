@@ -291,9 +291,6 @@ void PixTestDaq::FinalCleaning() {
 // ----------------------------------------------------------------------
 void PixTestDaq::doTest() {
 
-//  fApi->_dut->maskAllPixels(false);
-//  fApi->_dut->testAllPixels(true);
-
   PixTest::update();
   fDirectory->cd();
   fPg_setup.clear();
@@ -319,9 +316,6 @@ void PixTestDaq::doTest() {
   // Start the DAQ:
   //::::::::::::::::::::::::::::::::
 
-  //:::Setting register to read back a given quantity::::://
-  
-
   //First send only a RES:
   fPg_setup.push_back(make_pair("resetroc", 0));     // PG_RESR b001000 
   uint16_t period = 28;
@@ -342,7 +336,7 @@ void PixTestDaq::doTest() {
 
   //Set the pattern wrt the trigger frequency:
   LOG(logINFO) << "PG set to have trigger frequency = " << fParTriggerFrequency << " kHz";
-  if (!setTrgFrequency(50)){
+  if (!setTrgFrequency(20)){
 	  FinalCleaning();
 	  return;
   }
@@ -364,16 +358,6 @@ void PixTestDaq::doTest() {
 		gSystem->ProcessEvents();
 		ProcessData(0);
 	}
-
-	std::vector<std::vector<uint16_t> > rb;
-	rb = fApi->daqGetReadback();
-	for(int i=0; i<rb.size(); i++){
-	  for(int j=0; j<rb[i].size(); j++){
-	    LOG(logDEBUG)<<"Readback values: "<<rb[i][j];
-	  }
-	}
-
-
 	fApi->daqStop();
 
   } else {  //Use seconds
@@ -399,6 +383,7 @@ void PixTestDaq::doTest() {
 		  }
 		  LOG(logINFO) << "buffer not full, at " << (int)perFull << "%";
 		  gSystem->ProcessEvents();
+		  ProcessData();
 	  }
 	  if (fDaq_loop){
 		  LOG(logINFO) << "Buffer almost full, pausing triggers.";
@@ -418,11 +403,6 @@ void PixTestDaq::doTest() {
 	  }
 	}
   }
-
-
-
-
-
   //::::::::::::::::::::::::::::::
   //DAQ - THE END.
 
