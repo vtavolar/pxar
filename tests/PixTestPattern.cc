@@ -714,6 +714,15 @@ void PixTestPattern::doTest()
 		TriggerLoop(2, Hits, Phmap, Ph); //first argument == buffer check frequency (seconds)
 	}
 
+	fApi->setDAC("readback", 12);
+	std::vector<std::vector<uint16_t> > rb;
+	rb = fApi->daqGetReadback();
+	for(int i=0; i<rb.size(); i++){
+	  for(int j=0; j<rb[i].size(); j++){
+	    LOG(logDEBUG)<<"Readback values: "<<(rb[i][j]&255);
+	  }
+	}
+
 	//::::::::::::::::::::::::::::::
 	//DAQ - THE END.
 
