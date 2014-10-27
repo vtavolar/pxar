@@ -296,7 +296,9 @@ void PixTestReadbackScan::doTest() {
  //   
  // }
 
- CalibrateVd();
+  CalibrateVd();
+  //  CalibrateVa();
+  getCalibratedVbg();
  //fHistList.push_back(h1);
   for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
     (*il)->Draw((getHistOption(*il)).c_str()); 
@@ -444,35 +446,145 @@ void PixTestReadbackScan::CalibrateVana(){
 
 void PixTestReadbackScan::CalibrateVd(){
 
-  //readback DAC set to 9 (i.e. Vd)
-  fParReadback=9;
+  //readback DAC set to 8 (i.e. Vd)
+  fParReadback=8;
 
   int readback=0;
 
-  TH1D* h_rbVd = new TH1D("rbVd","rbVd", 256, 0., 256.);
-  TH1D* h_dacVd = new TH1D("dacVd","dacVd", 256, 0., 256.);
+  TH1D* h_rbVd = new TH1D("rbVd","rbVd", 500, 0., 5.);
+  TH1D* h_dacVd = new TH1D("dacVd","dacVd", 500, 0., 5.);
   vector<double > rbVd;
-  
-  for(int Vd=0; Vd<60; Vd++){
+  double Vd;
+
+  for(int iVd=0; iVd<45; iVd++){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VD FUNCTION :::::****/";
-    readback=daqReadback("vd", (double)(2.2+(double)Vd*0.1), fParReadback);
+    Vd = 2.1 + iVd*0.02;
+    LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
+    readback=daqReadback("vd", Vd, fParReadback);
+    LOG(logDEBUG)<<"Voltage "<<Vd<<", readback "<<readback;
     rbVd.push_back(readback);
     h_rbVd->Fill(Vd, readback);
     h_dacVd->Fill(Vd, Vd);
   }
 
-  //double rb_VdMax=0.;
-  //
+  // double rb_VdMax=0.;
+  
   //rb_VdMax = h_rbVd->GetBinCenter(h_rbVd->FindFirstBinAbove(254));
+  
+  
+  //  LOG(logDEBUG)<<"Vd max for fit:"<<endl<<"rb: "<<rb_VdMax;
+  
+  TF1* frb = new TF1("lin_vd", "[0] + x*[1]");
+  
+
+  h_rbVd->Fit(frb, "W", "");
+
+  LOG(logDEBUG)<<"Number of points for rb fit "<<frb->GetNumberFitPoints();
+
+  //  double rbpar0=0., rbpar1=0.;
+  fPar0VdCal=frb->GetParameter(0);
+  fPar1VdCal=frb->GetParameter(1);
+
+  fHistList.push_back(h_rbVd);
+  //fHistList.push_back(h_rbVdCal);
+  fHistList.push_back(h_dacVd);
+//  h_rbVdCal->Draw();
+//  h_dacVd->Draw("same");
+
+
+}
+
+
+void PixTestReadbackScan::getCalibratedVbg(){
+
+  //readback DAC set to 11 (i.e. Vbg)
+  fParReadback=11;
+
+  int readback=0;
+
+  TH1D* h_rbVbg = new TH1D("rbVbg","rbVbg", 500, 0., 5.);
+  TH1D* h_dacVbg = new TH1D("dacVbg","dacVbg", 500, 0., 5.);
+  vector<double > rbVbg;
+  double Vd;
+
+  int n_meas=0.;
+  double avReadback=0.;
+
+  for(int i=0; i<10; i++){
+    LOG(logDEBUG)<<"/****:::::: CALIBRATE VBG FUNCTION :::::****/";
+    Vd = 2.5;
+    LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
+    readback = daqReadback("vd", Vd, fParReadback);
+    if (0!=readback){
+      avReadback+=(double)readback;
+      n_meas++;
+    }
+    LOG(logDEBUG)<<"Voltage "<<Vd<<", average readback "<<(double)readback/(i+1);
+    rbVbg.push_back(readback);
+    h_rbVbg->Fill(Vd, readback);
+    h_dacVbg->Fill(Vd, Vd);
+  }
+
+
+  avReadback/=n_meas;
+ 
+
+  double calVbg=0;
+  //0.5 needed because Vbg rb has twice the sensitivity Vd and Va have
+  calVbg=0.5*(avReadback-fPar0VdCal)/fPar1VdCal;
+  LOG(logDEBUG)<<"/*/*/*/*::: Calibrated Vbg = "<<calVbg<<" :::*/*/*/*/";
+  //  double rbpar0=0., rbpar1=0.;
+  // fPar0VdCal=frb->GetParameter(0);
+  // fPar1VdCal=frb->GetParameter(1);
+
+  fHistList.push_back(h_rbVbg);
+  //fHistList.push_back(h_rbVdCal);
+  fHistList.push_back(h_dacVbg);
+//  h_rbVdCal->Draw();
+//  h_dacVd->Draw("same");
+
+
+}
+
+
+
+
+
+void PixTestReadbackScan::CalibrateVa(){
+
+  //readback DAC set to 9 (i.e. Va)
+  fParReadback=11;
+
+  int readback=0;
+
+  TH1D* h_rbVa = new TH1D("rbVa","rbVa", 500, 0., 5.);
+  TH1D* h_dacVa = new TH1D("dacVa","dacVa", 500, 0., 5.);
+  vector<double > rbVa;
+  double Va;
+
+  for(int iVa=0; iVa<35; iVa++){
+    LOG(logDEBUG)<<"/****:::::: CALIBRATE VA FUNCTION :::::****/";
+    Va = 1.5 + iVa*0.02;
+    LOG(logDEBUG)<<"Digital voltage will be set to: "<<Va;
+    readback=daqReadback("va", Va, fParReadback);
+    LOG(logDEBUG)<<"Voltage "<<Va<<", readback "<<readback;
+    rbVa.push_back(readback);
+    h_rbVa->Fill(Va, readback);
+    h_dacVa->Fill(Va, Va);
+  }
+
+  //double rb_VaMax=0.;
+  //
+  //rb_VaMax = h_rbVa->GetBinCenter(h_rbVa->FindFirstBinAbove(254));
   //
   //
-  //LOG(logDEBUG)<<"Vd max for fit:"<<endl<<"rb: "<<rb_VdMax;
+  //LOG(logDEBUG)<<"Va max for fit:"<<endl<<"rb: "<<rb_VaMax;
   //
-  //TF1* frb = new TF1("lin_rb", "[0] + x*[1]", 0, rb_VdMax);
+  //TF1* frb = new TF1("lin_rb", "[0] + x*[1]", 0, rb_VaMax);
   //TF1* fdac = new TF1("lin_fdac", "[0] + x*[1]", 0, 255);
 
-  //  h_rbVd->Fit(frb, "W", "", 0., rb_VdMax);
-  //  h_dacVd->Fit(fdac);
+  //  h_rbVa->Fit(frb, "W", "", 0., rb_VaMax);
+  //  h_dacVa->Fit(fdac);
 
   //LOG(logDEBUG)<<"Number of points for rb fit "<<frb->GetNumberFitPoints();
 
@@ -482,19 +594,19 @@ void PixTestReadbackScan::CalibrateVd(){
   //dacpar0=fdac->GetParameter(0);
   //dacpar1=fdac->GetParameter(1);
   //
-  //TH1D* h_rbVdCal = new TH1D("rbVd","rbVd", 256, 0., 256.);
-  //for(int Vd=0; Vd<256; Vd++){
-  //  h_rbVdCal->Fill(Vd, ((dacpar1/rbpar1)*(rbVd[Vd]-rbpar0)+dacpar0));
+  //TH1D* h_rbVaCal = new TH1D("rbVa","rbVa", 256, 0., 256.);
+  //for(int Va=0; Va<256; Va++){
+  //  h_rbVaCal->Fill(Va, ((dacpar1/rbpar1)*(rbVa[Va]-rbpar0)+dacpar0));
   //}
   //
-  //h_rbVdCal->SetLineColor(kBlue);
-  //fHistOptions.insert(make_pair(h_rbVdCal,"same"));
+  //h_rbVaCal->SetLineColor(kBlue);
+  //fHistOptions.insert(make_pair(h_rbVaCal,"same"));
 
-  fHistList.push_back(h_rbVd);
-  //fHistList.push_back(h_rbVdCal);
-  fHistList.push_back(h_dacVd);
-//  h_rbVdCal->Draw();
-//  h_dacVd->Draw("same");
+  fHistList.push_back(h_rbVa);
+  //fHistList.push_back(h_rbVaCal);
+  fHistList.push_back(h_dacVa);
+//  h_rbVaCal->Draw();
+//  h_dacVa->Draw("same");
 
 
 }
@@ -515,11 +627,20 @@ uint8_t PixTestReadbackScan::daqReadback(string dac, double vana, int8_t parRead
   }
   else if (!dac.compare("vd")){
     vector<pair<string,double > > powerset;
-    powerset.push_back(make_pair("ia", fApi->getTBia()));
-    powerset.push_back(make_pair("id", fApi->getTBid()));
+    powerset.push_back(make_pair("ia", 1.19));
+    powerset.push_back(make_pair("id", 1.10));
     powerset.push_back(make_pair("va", fApi->getTBva()));
     powerset.push_back(make_pair("vd", vana));
-    
+    fApi->setTestboardPower(powerset);
+    //    fApi->_hal->setTBvd(vana);
+  }
+else if (!dac.compare("va")){
+    vector<pair<string,double > > powerset;
+    powerset.push_back(make_pair("ia", 1.19));
+    powerset.push_back(make_pair("id", 1.10));
+    powerset.push_back(make_pair("va", vana));
+    powerset.push_back(make_pair("vd", fApi->getTBvd()));
+    fApi->setTestboardPower(powerset);
     //    fApi->_hal->setTBvd(vana);
   }
 

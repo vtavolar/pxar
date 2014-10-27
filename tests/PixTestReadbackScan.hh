@@ -30,7 +30,8 @@ public:
   void CalibrateIa();
   void CalibrateVana();
   void CalibrateVd();
-
+  void CalibrateVa();
+  void getCalibratedVbg();
   void doTest();
 
 private:
@@ -49,6 +50,9 @@ private:
   PHCalibration fPhCal;
   bool	   fParOutOfRange;
   bool     fDaq_loop;
+
+  double fPar0VdCal;
+  double fPar1VdCal;
   
   std::vector<std::pair<std::string, uint8_t> > fPg_setup;
 
