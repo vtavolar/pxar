@@ -27,12 +27,16 @@ public:
   void FinalCleaning();
   uint8_t daqReadback(std::string dac, uint8_t vana, int8_t parReadback);
   uint8_t daqReadback(std::string dac, double vana, int8_t parReadback);
+  uint8_t daqReadbackIa();
   void CalibrateIa();
   void CalibrateVana();
   void CalibrateVd();
   void CalibrateVa();
   void getCalibratedVbg();
+  void readbackVbg();
   void doTest();
+  double getCalibratedIa();
+  void setVana();
 
 private:
 
@@ -53,7 +57,20 @@ private:
 
   double fPar0VdCal;
   double fPar1VdCal;
+  double fPar0VaCal;
+  double fPar1VaCal;
+  double fPar0RbIaCal;
+  double fPar1RbIaCal;
+  double fPar0TbIaCal;
+  double fPar1TbIaCal;
+
+  bool fCalwVd;
+  bool fCalwVa;
+
+  double fRbVbg;
+
   
+
   std::vector<std::pair<std::string, uint8_t> > fPg_setup;
 
   std::vector<TH2D*> fHits;

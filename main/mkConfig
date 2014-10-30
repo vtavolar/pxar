@@ -444,6 +444,15 @@ phmin               30
 phmax               220
 PIX                 11,20
 
+-- ReadbackScan
+calibrateVd         button
+calibrateVa         button
+calibrateIa         button
+readbackVbg         button
+getCalibratedVbg    button
+useCalVd            checkbox(1) 
+useCalVa            checkbox(0) 
+
 -- Xray
 source              Ag
 phrun               button
