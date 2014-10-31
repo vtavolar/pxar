@@ -17,9 +17,9 @@ public:
   void GetMaxPhPixel(std::map<int, pxar::pixel> &maxpixel, std::vector<std::pair<uint8_t, std::pair<int, int> > > &badPixels);
   void GetMinPhPixel(std::map<int, pxar::pixel> &minpixel, std::vector<std::pair<uint8_t, std::pair<int, int> > > &badPixels);
   void GetMinPixel(std::vector<std::pair<int, pxar::pixel> > &minpixel, std::vector<pxar::pixel> &thrmap, std::vector<std::pair<uint8_t, std::pair<int, int> > > &badPixels);
-  std::map<uint8_t, int> InsideRangePH(std::map<uint8_t,int> po_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
-  std::map<uint8_t, int> CentrePhRange(std::map<uint8_t, int> po_opt, std::map<uint8_t, int> ps_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
-  std::map<uint8_t, int> StretchPH(std::map<uint8_t, int> po_opt, std::map<uint8_t, int> ps_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
+  std::map<uint8_t, int> InsideRangePH(std::map<uint8_t,int> &po_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
+  std::map<uint8_t, int> CentrePhRange(std::map<uint8_t, int> &po_opt, std::map<uint8_t, int> &ps_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
+  std::map<uint8_t, int> StretchPH(std::map<uint8_t, int> &po_opt, std::map<uint8_t, int> &ps_opt,  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_max,   std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > &dacdac_min);
   void DynamicRange();
   void doTest(); 
 
