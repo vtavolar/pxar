@@ -422,7 +422,9 @@ save                button
 
 -- PhOptimization
 ntrig               10
-singlePix           1
+singlePix           0
+safetymarginlow     30
+safetymarginup      10     
 
 -- PhOpt
 PIX                 11,20
