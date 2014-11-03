@@ -37,6 +37,7 @@ public:
   void doTest();
   double getCalibratedIa();
   void setVana();
+  void doDAQ();
 
 private:
 
@@ -63,6 +64,7 @@ private:
   double fPar1RbIaCal;
   double fPar0TbIaCal;
   double fPar1TbIaCal;
+  double fPar2TbIaCal;
 
   bool fCalwVd;
   bool fCalwVa;

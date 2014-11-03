@@ -450,8 +450,10 @@ calibrateVa         button
 calibrateIa         button
 readbackVbg         button
 getCalibratedVbg    button
-useCalVd            checkbox(1) 
-useCalVa            checkbox(0) 
+useCalVd            checkbox(1)
+useCalVa            checkbox(0)
+getCalibratedIa     button
+setVana             button
 
 -- Xray
 source              Ag

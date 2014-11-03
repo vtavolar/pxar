@@ -333,44 +333,37 @@ void PixTestReadbackScan::FinalCleaning() {
 // ----------------------------------------------------------------------
 void PixTestReadbackScan::doTest() {
   LOG(logINFO) << "PixTestReadbackScan::doTest() start.";
-  int readback=0;
- 
-  fParReadback=10;
- 
- // TH1D* h1= new TH1D("rbScan","rbScan", 255, 0., 255.);
- // for(uint8_t vana=0; vana<255; vana++){
- //   readback=daqReadback("vana", vana, fParReadback);
- //   h1->Fill(vana, readback);
- //   
- // }
 
- // CalibrateIa();
+  cacheDacs();
 
   CalibrateVd();
-  //CalibrateVa();
+  CalibrateVa();
   readbackVbg();
   getCalibratedVbg();
- //fHistList.push_back(h1);
+  CalibrateIa();
   for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
     (*il)->Draw((getHistOption(*il)).c_str()); 
   }
 
   ofstream myfile;
-  myfile.open ("calPar.txt", ios::app);
-  myfile <<"#par0Vd    par1Vd    par0Va    par1Va    directory    rbVbg    Vbg    calVd    calVa"<<endl;
-  myfile<<fPar0VdCal<<"    "<<fPar1VdCal<<"    "<<fPar0VaCal<<"    "<<fPar1VaCal<<"    "<<fDirectory<<"    "<<fRbVbg<<"    "<<fCalwVd<<"    "<<fCalwVa<<endl;
+  myfile.open ((fPixSetup->getConfigParameters()->getDirectory()+"/ReadbackCal.dat").c_str(), ios::app);
+  myfile << "##Voltages" << endl;
+  myfile <<"#par0Vd    par1Vd    par0Va    par1Va    directory    rbVbg    Vbg    calVd    calVa    "<<endl;
+  myfile<<fPar0VdCal<<"    "<<fPar1VdCal<<"    "<<fPar0VaCal<<"    "<<fPar1VaCal<<"    "<<fPixSetup->getConfigParameters()->getDirectory()<<"    "<<fRbVbg<<"    "<<fCalwVd<<"    "<<fCalwVa<<endl;
+  myfile << "##Currents " << endl;
+  myfile << "par0IaRb    par1IaRb    par0IaTb    par1IaTb    par2IaTb" << endl;
+  myfile << fPar0RbIaCal << "    " << fPar1RbIaCal << "    " << fPar0TbIaCal << "    " << fPar1TbIaCal << "    " << fPar2TbIaCal << endl;
   myfile.close();
-
+  
+  restoreDacs();
 
  LOG(logINFO) << "PixTestReadbackScan::doTest() done";
-
-
 
 }
 
 
 void PixTestReadbackScan::CalibrateIa(){
-
+  cacheDacs();
   //readback DAC set to 12 (i.e. Ia)
   fParReadback=12;
 
@@ -392,62 +385,41 @@ void PixTestReadbackScan::CalibrateIa(){
 
   double rb_vanaMax=0.;
   double tb_vanaMax=0.;
-  double diff=0.;
-//  for(int ibin=1; ibin<=h_rbIa->GetNbinsX()-5; ibin++){
-//    diff = h_rbIa->GetBinContent(ibin) -  h_rbIa->GetBinContent(ibin+5);
-//    if(diff==0){
-//      rb_vanaMax=h_rbIa->GetBinCenter(ibin+5);
-//      break;
-//    }
-//  }
-//
-// for(int ibin=1; ibin<=h_tbIa->GetNbinsX()-5; ibin++){
-//    diff = h_tbIa->GetBinContent(ibin) -  h_tbIa->GetBinContent(ibin+5);
-//    if(diff==0){
-//      tb_vanaMax=h_tbIa->GetBinCenter(ibin+5);
-//      break;
-//    }
-//  }
+   
+  //protection to exclude plateu from fit
+  rb_vanaMax = h_rbIa->GetBinCenter(h_rbIa->FindFirstBinAbove(254));
 
-
- rb_vanaMax = h_rbIa->GetBinCenter(h_rbIa->FindFirstBinAbove(254));
-
-
-LOG(logDEBUG)<<"Vana max for fit:"<<endl<<"rb: "<<rb_vanaMax<<endl<<"tb :"<<tb_vanaMax;
+  LOG(logDEBUG)<<"Vana max for fit:"<<endl<<"rb: "<<rb_vanaMax<<endl<<"tb :"<<tb_vanaMax;
 
   TF1* frb = new TF1("lin_rb", "[0] + x*[1]", 0, rb_vanaMax);
-  TF1* ftb = new TF1("lin_ftb", "[0] + x*[1]", 0, 255);
+  TF1* ftb = new TF1("pol2_ftb", "[0] + x*[1] + x*x*[2] ", 0, 255);
 
   h_rbIa->Fit(frb, "W", "", 0., rb_vanaMax);
   h_tbIa->Fit(ftb);
 
   LOG(logDEBUG)<<"Number of points for rb fit "<<frb->GetNumberFitPoints();
 
-  double rbpar0=0., rbpar1=0., tbpar0=0., tbpar1=0.;
   fPar0RbIaCal=frb->GetParameter(0);
   fPar1RbIaCal=frb->GetParameter(1);
   fPar0TbIaCal=ftb->GetParameter(0);
   fPar1TbIaCal=ftb->GetParameter(1);
+  fPar2TbIaCal=ftb->GetParameter(2);
 
   TH1D* h_rbIaCal = new TH1D("rbIaCal","rbIaCal", 256, 0., 256.);
   for(int vana=0; vana<256; vana++){
-    h_rbIaCal->Fill(vana, ((tbpar1/rbpar1)*(rbIa[vana]-rbpar0)+tbpar0));
+    //    h_rbIaCal->Fill(vana, ((tbpar1/rbpar1)*(rbIa[vana]-rbpar0)+tbpar0));
+    h_rbIaCal->Fill(vana, (rbIa[vana]*rbIa[vana]*fPar2TbIaCal/fPar1RbIaCal/fPar1RbIaCal + rbIa[vana]/fPar1RbIaCal/fPar1RbIaCal*(fPar1RbIaCal*fPar1TbIaCal-2*fPar0RbIaCal*fPar2TbIaCal) + (fPar0RbIaCal*fPar0RbIaCal*fPar2TbIaCal - fPar0RbIaCal*fPar1TbIaCal)/fPar1RbIaCal + fPar0TbIaCal));
   }
 
   h_rbIaCal->SetLineColor(kBlue);
-  //  fHistOptions.insert(make_pair(h_rbIaCal,"same"));
-
   fHistList.push_back(h_rbIa);
   fHistList.push_back(h_rbIaCal);
   fHistList.push_back(h_tbIa);
-//  h_rbIaCal->Draw();
-//  h_tbIa->Draw("same");
-
-
+  restoreDacs();
 }
 
 double PixTestReadbackScan::getCalibratedIa(){
-
+  cacheDacs();
   //readback DAC set to 12 (i.e. Ia)
   fParReadback=12;
 
@@ -455,19 +427,17 @@ double PixTestReadbackScan::getCalibratedIa(){
   double calIa=0.;
 
   readback=daqReadbackIa();
-  calIa = ((fPar1TbIaCal/fPar1RbIaCal)*((double)readback-fPar0RbIaCal)+fPar0TbIaCal);
+  //  calIa = ((fPar1TbIaCal/fPar1RbIaCal)*((double)readback-fPar0RbIaCal)+fPar0TbIaCal);
+  calIa = (((double)readback)*((double)readback)*fPar2TbIaCal/fPar1RbIaCal/fPar1RbIaCal + ((double)readback)/fPar1RbIaCal/fPar1RbIaCal*(fPar1RbIaCal*fPar1TbIaCal-2*fPar0RbIaCal*fPar2TbIaCal) + (fPar0RbIaCal*fPar0RbIaCal*fPar2TbIaCal - fPar0RbIaCal*fPar1TbIaCal)/fPar1RbIaCal + fPar0TbIaCal);
+  restoreDacs();
   LOG(logDEBUG)<<"Calibrated analog current is "<<calIa;
   return  calIa;
-
 }
 
-
-
-
 void PixTestReadbackScan::CalibrateVana(){
-
+  cacheDacs();
   //readback DAC set to 11 (i.e. Vana)
-  fParReadback=11;
+  fParReadback=12;
 
   int readback=0;
 
@@ -485,7 +455,6 @@ void PixTestReadbackScan::CalibrateVana(){
   double rb_vanaMax=0.;
 
   rb_vanaMax = h_rbVana->GetBinCenter(h_rbVana->FindFirstBinAbove(254));
-
 
   LOG(logDEBUG)<<"Vana max for fit:"<<endl<<"rb: "<<rb_vanaMax;
 
@@ -514,27 +483,25 @@ void PixTestReadbackScan::CalibrateVana(){
   fHistList.push_back(h_rbVana);
   fHistList.push_back(h_rbVanaCal);
   fHistList.push_back(h_dacVana);
-//  h_rbVanaCal->Draw();
-//  h_dacVana->Draw("same");
-
-
+  restoreDacs();
 }
 
 void PixTestReadbackScan::CalibrateVd(){
+  cacheDacs();
 
   //readback DAC set to 8 (i.e. Vd)
   fParReadback=8;
 
   int readback=0;
 
-  TH1D* h_rbVd = new TH1D("rbVd","rbVd", 500, 0., 5.);
-  TH1D* h_dacVd = new TH1D("dacVd","dacVd", 500, 0., 5.);
+  TH1D* h_rbVd = new TH1D("rbVd","rbVd", 90, 0., 5.);
+  TH1D* h_dacVd = new TH1D("dacVd","dacVd", 90, 0., 5.);
   vector<double > rbVd;
   double Vd;
 
-  for(int iVd=0; iVd<45; iVd++){
+  for(int iVd=0; iVd<15; iVd++){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VD FUNCTION :::::****/";
-    Vd = 2.1 + iVd*0.02;
+    Vd = 2.1 + iVd*0.06;
     LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
     readback=daqReadback("vd", Vd, fParReadback);
     LOG(logDEBUG)<<"Voltage "<<Vd<<", readback "<<readback;
@@ -542,37 +509,22 @@ void PixTestReadbackScan::CalibrateVd(){
     h_rbVd->Fill(Vd, readback);
     h_dacVd->Fill(Vd, Vd);
   }
-
-  // double rb_VdMax=0.;
-  
-  //rb_VdMax = h_rbVd->GetBinCenter(h_rbVd->FindFirstBinAbove(254));
-  
-  
-  //  LOG(logDEBUG)<<"Vd max for fit:"<<endl<<"rb: "<<rb_VdMax;
   
   TF1* frb = new TF1("lin_vd", "[0] + x*[1]");
-  
 
   h_rbVd->Fit(frb, "W", "");
 
-  LOG(logDEBUG)<<"Number of points for rb fit "<<frb->GetNumberFitPoints();
-
-  //  double rbpar0=0., rbpar1=0.;
   fPar0VdCal=frb->GetParameter(0);
   fPar1VdCal=frb->GetParameter(1);
 
   fHistList.push_back(h_rbVd);
-  //fHistList.push_back(h_rbVdCal);
   fHistList.push_back(h_dacVd);
-//  h_rbVdCal->Draw();
-//  h_dacVd->Draw("same");
-
-
+  restoreDacs();
 }
 
 
 void PixTestReadbackScan::readbackVbg(){
-
+  cacheDacs();
   //readback DAC set to 11 (i.e. Vbg)
   fParReadback=11;
 
@@ -605,8 +557,8 @@ void PixTestReadbackScan::readbackVbg(){
  
   fHistList.push_back(h_rbVbg);
   fHistList.push_back(h_dacVbg);
+  restoreDacs();
 }
-
 
 void PixTestReadbackScan::getCalibratedVbg(){
   double calVbg=0;
@@ -626,25 +578,20 @@ void PixTestReadbackScan::getCalibratedVbg(){
   LOG(logDEBUG)<<"/*/*/*/*::: Calibrated Vbg = "<<calVbg<<" :::*/*/*/*/";
 }
 
-
-
-
-
 void PixTestReadbackScan::CalibrateVa(){
-
   //readback DAC set to 9 (i.e. Va)
   fParReadback=9;
 
   int readback=0;
 
-  TH1D* h_rbVa = new TH1D("rbVa","rbVa", 500, 0., 5.);
-  TH1D* h_dacVa = new TH1D("dacVa","dacVa", 500, 0., 5.);
+  TH1D* h_rbVa = new TH1D("rbVa","rbVa", 90, 0., 5.);
+  TH1D* h_dacVa = new TH1D("dacVa","dacVa", 90, 0., 5.);
   vector<double > rbVa;
   double Va;
 
-  for(int iVa=0; iVa<45; iVa++){
+  for(int iVa=0; iVa<55; iVa++){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VA FUNCTION :::::****/";
-    Va = 1.5 + iVa*0.02;
+    Va = 1.5 + iVa*0.06;
     LOG(logDEBUG)<<"Analog voltage will be set to: "<<Va;
     readback=daqReadback("va", Va, fParReadback);
     LOG(logDEBUG)<<"Voltage "<<Va<<", readback "<<readback;
@@ -656,8 +603,7 @@ void PixTestReadbackScan::CalibrateVa(){
   double rb_VaMax=0.;
   
   rb_VaMax = h_rbVa->GetBinCenter(h_rbVa->FindFirstBinAbove(254));
-  
-  
+    
   LOG(logDEBUG)<<"Va max for fit:"<<endl<<"rb: "<<rb_VaMax;
   
   TF1* frb = new TF1("lin_rb", "[0] + x*[1]", 0, rb_VaMax);
@@ -666,25 +612,14 @@ void PixTestReadbackScan::CalibrateVa(){
 
   LOG(logDEBUG)<<"Number of points for rb fit "<<frb->GetNumberFitPoints();
 
-
   fPar0VaCal=frb->GetParameter(0);
   fPar1VaCal=frb->GetParameter(1);
-  
 
   fHistList.push_back(h_rbVa);
-  //fHistList.push_back(h_rbVaCal);
   fHistList.push_back(h_dacVa);
-//  h_rbVaCal->Draw();
-//  h_dacVa->Draw("same");
-
-
 }
 
-
-
-
 uint8_t PixTestReadbackScan::daqReadback(string dac, double vana, int8_t parReadback){
-
 
   PixTest::update();
   fDirectory->cd();
@@ -692,109 +627,40 @@ uint8_t PixTestReadbackScan::daqReadback(string dac, double vana, int8_t parRead
 
   if (!dac.compare("vana")){
     LOG(logDEBUG)<<"Wrong daqReadback function called!!!";
-    //    fApi->setDAC(dac.c_str, (uint8_t)vana);
   }
   else if (!dac.compare("vd")){
     vector<pair<string,double > > powerset;
+    //using some standard values, should be restored after
     powerset.push_back(make_pair("ia", 1.19));
     powerset.push_back(make_pair("id", 1.10));
     powerset.push_back(make_pair("va", 1.9));
     powerset.push_back(make_pair("vd", vana));
     fApi->setTestboardPower(powerset);
-    //    fApi->_hal->setTBvd(vana);
   }
 else if (!dac.compare("va")){
+    //using some standard values, should be restored after
     vector<pair<string,double > > powerset;
     powerset.push_back(make_pair("ia", 1.19));
     powerset.push_back(make_pair("id", 1.10));
     powerset.push_back(make_pair("va", vana));
     powerset.push_back(make_pair("vd", 2.6));
     fApi->setTestboardPower(powerset);
-    //    fApi->_hal->setTBvd(vana);
   }
 
   fApi->setDAC("readback", parReadback);
 
-
-  //Immediately stop if parameters not in range	
-  if (fParOutOfRange) return 255;
-  
- 
-
-  //Set the ClockStretch
-  fApi->setClockStretch(0, 0, fParStretch); //Stretch after trigger, 0 delay
-   
-  //Set the histograms:
-  if(fHistList.size() == 0) setHistos();  //to book histo only for the first 'doTest' (or after Clear).
-
-  //To print on shell the number of masked pixels per ROC:
-  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
-  LOG(logINFO) << "PixTestReadbackScan::Number of masked pixels:";
-  for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc) {
-	  LOG(logINFO) << "PixTestReadbackScan::    ROC " << static_cast<int>(iroc) << ": " << fApi->_dut->getNMaskedPixels(static_cast<int>(iroc));
-  }  
-
-  
-  // Start the DAQ:
-  //::::::::::::::::::::::::::::::::
-
-  //:::Setting register to read back a given quantity::::://
-  
-
-  //First send only a RES:
-  fPg_setup.push_back(make_pair("resetroc", 0));     // PG_RESR b001000 
-  uint16_t period = 28;
-
-  //Set the pattern generator:
-  fApi->setPatternGenerator(fPg_setup);
-
-  fApi->daqStart();
-
-  //Send only one trigger to reset:
-  fApi->daqTrigger(1, period);
-  LOG(logINFO) << "PixTestReadbackScan::RES sent once ";
-
-  fApi->daqStop();
-
-  fPg_setup.clear();
-  LOG(logINFO) << "PixTestReadbackScan::PG_Setup clean";
-
-  //Set the pattern wrt the trigger frequency:
-  LOG(logINFO) << "PG set to have trigger frequency = " << fParTriggerFrequency << " kHz";
-  if (!setTrgFrequency(20)){
-	  FinalCleaning();
-	  return 255;
-  }
-
-  //Set pattern generator:
-  fApi->setPatternGenerator(fPg_setup);
-
-  fDaq_loop = true;
-
-  //Start the DAQ:
-  fApi->daqStart();
-
-  int  Ntrig=32;
-  //Send the triggers:
-  fApi->daqTrigger(Ntrig, fParPeriod);
-  gSystem->ProcessEvents();
-  ProcessData(0);
- 
-  fApi->daqStop(); 
+  doDAQ();
 
   std::vector<std::vector<uint16_t> > rb;
   rb = fApi->daqGetReadback();
   uint8_t rb_val=0;
 
-
-  for(int i=0; i<rb.size(); i++){
-    for(int j=0; j<rb[i].size(); j++){
+  for(uint i=0; i<rb.size(); i++){
+    for(uint j=0; j<rb[i].size(); j++){
       LOG(logDEBUG)<<"Readback values for vana = "<<(int)vana<<" : "<<(int)(rb[i][j]&0xff);
       rb_val=(rb[i][j]&0xff);
     }
   }
-  
-
   
   //::::::::::::::::::::::::::::::
   //DAQ - THE END.
@@ -807,7 +673,6 @@ else if (!dac.compare("va")){
 
 uint8_t PixTestReadbackScan::daqReadback(string dac, uint8_t vana, int8_t parReadback){
 
-
   PixTest::update();
   fDirectory->cd();
   fPg_setup.clear();
@@ -815,93 +680,24 @@ uint8_t PixTestReadbackScan::daqReadback(string dac, uint8_t vana, int8_t parRea
   if (!dac.compare("vana")){
     fApi->setDAC(dac.c_str(), vana);
   }
-  else if (!dac.compare("vd")){
+  else {
     LOG(logDEBUG)<<"Wrong daqReadback function called!!!";
     //fApi->_hal->setTBvd(vana);
   }
 
   fApi->setDAC("readback", parReadback);
-
-
-  //Immediately stop if parameters not in range	
-  if (fParOutOfRange) return 255;
-  
- 
-
-  //Set the ClockStretch
-  fApi->setClockStretch(0, 0, fParStretch); //Stretch after trigger, 0 delay
-   
-  //Set the histograms:
-  if(fHistList.size() == 0) setHistos();  //to book histo only for the first 'doTest' (or after Clear).
-
-  //To print on shell the number of masked pixels per ROC:
-  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
-  LOG(logINFO) << "PixTestReadbackScan::Number of masked pixels:";
-  for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc) {
-	  LOG(logINFO) << "PixTestReadbackScan::    ROC " << static_cast<int>(iroc) << ": " << fApi->_dut->getNMaskedPixels(static_cast<int>(iroc));
-  }  
-
-  
-  // Start the DAQ:
-  //::::::::::::::::::::::::::::::::
-
-  //:::Setting register to read back a given quantity::::://
-  
-
-  //First send only a RES:
-  fPg_setup.push_back(make_pair("resetroc", 0));     // PG_RESR b001000 
-  uint16_t period = 28;
-
-  //Set the pattern generator:
-  fApi->setPatternGenerator(fPg_setup);
-
-  fApi->daqStart();
-
-  //Send only one trigger to reset:
-  fApi->daqTrigger(1, period);
-  LOG(logINFO) << "PixTestReadbackScan::RES sent once ";
-
-  fApi->daqStop();
-
-  fPg_setup.clear();
-  LOG(logINFO) << "PixTestReadbackScan::PG_Setup clean";
-
-  //Set the pattern wrt the trigger frequency:
-  LOG(logINFO) << "PG set to have trigger frequency = " << fParTriggerFrequency << " kHz";
-  if (!setTrgFrequency(20)){
-	  FinalCleaning();
-	  return 255;
-  }
-
-  //Set pattern generator:
-  fApi->setPatternGenerator(fPg_setup);
-
-  fDaq_loop = true;
-
-  //Start the DAQ:
-  fApi->daqStart();
-
-  int  Ntrig=32;
-  //Send the triggers:
-  fApi->daqTrigger(Ntrig, fParPeriod);
-  gSystem->ProcessEvents();
-  ProcessData(0);
- 
-  fApi->daqStop(); 
+  doDAQ();
 
   std::vector<std::vector<uint16_t> > rb;
   rb = fApi->daqGetReadback();
   uint8_t rb_val=0;
 
-
-  for(int i=0; i<rb.size(); i++){
-    for(int j=0; j<rb[i].size(); j++){
+  for(uint i=0; i<rb.size(); i++){
+    for(uint j=0; j<rb[i].size(); j++){
       LOG(logDEBUG)<<"Readback values for vana = "<<(int)vana<<" : "<<(int)(rb[i][j]&0xff);
       rb_val=(rb[i][j]&0xff);
     }
   }
-  
-
   
   //::::::::::::::::::::::::::::::
   //DAQ - THE END.
@@ -914,18 +710,14 @@ uint8_t PixTestReadbackScan::daqReadback(string dac, uint8_t vana, int8_t parRea
 
 uint8_t PixTestReadbackScan::daqReadbackIa(){
 
-
   PixTest::update();
   fDirectory->cd();
   fPg_setup.clear();
 
   fApi->setDAC("readback", 12);
 
-
   //Immediately stop if parameters not in range	
   if (fParOutOfRange) return 255;
-  
- 
 
   //Set the ClockStretch
   fApi->setClockStretch(0, 0, fParStretch); //Stretch after trigger, 0 delay
@@ -939,13 +731,11 @@ uint8_t PixTestReadbackScan::daqReadbackIa(){
   for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc) {
 	  LOG(logINFO) << "PixTestReadbackScan::    ROC " << static_cast<int>(iroc) << ": " << fApi->_dut->getNMaskedPixels(static_cast<int>(iroc));
   }  
-
   
   // Start the DAQ:
   //::::::::::::::::::::::::::::::::
 
   //:::Setting register to read back a given quantity::::://
-  
 
   //First send only a RES:
   fPg_setup.push_back(make_pair("resetroc", 0));     // PG_RESR b001000 
@@ -992,15 +782,12 @@ uint8_t PixTestReadbackScan::daqReadbackIa(){
   rb = fApi->daqGetReadback();
   uint8_t rb_val=0;
 
-
-  for(int i=0; i<rb.size(); i++){
-    for(int j=0; j<rb[i].size(); j++){
+  for(uint i=0; i<rb.size(); i++){
+    for(uint j=0; j<rb[i].size(); j++){
       LOG(logDEBUG)<<"Readback values : "<<(int)(rb[i][j]&0xff);
       rb_val=(rb[i][j]&0xff);
     }
   }
-  
-
   
   //::::::::::::::::::::::::::::::
   //DAQ - THE END.
@@ -1009,11 +796,6 @@ uint8_t PixTestReadbackScan::daqReadbackIa(){
   fApi->setClockStretch(0, 0, 0); //No Stretch after trigger, 0 delay
   return rb_val;
  }
-
-
-
-
-
 
 void PixTestReadbackScan::setVana() {
   cacheDacs();
@@ -1161,4 +943,69 @@ void PixTestReadbackScan::setVana() {
 
   LOG(logINFO) << "PixTestPretest::setVana() done, Module Ia " << ia16 << " mA = " << ia16/nRocs << " mA/ROC";
 
+}
+
+
+void PixTestReadbackScan::doDAQ(){
+  //Immediately stop if parameters not in range	
+  if (fParOutOfRange) return;
+
+  //Set the ClockStretch
+  fApi->setClockStretch(0, 0, fParStretch); //Stretch after trigger, 0 delay
+   
+  //Set the histograms:
+  if(fHistList.size() == 0) setHistos();  //to book histo only for the first 'doTest' (or after Clear).
+
+  //To print on shell the number of masked pixels per ROC:
+  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
+  LOG(logINFO) << "PixTestReadbackScan::Number of masked pixels:";
+  for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc) {
+	  LOG(logINFO) << "PixTestReadbackScan::    ROC " << static_cast<int>(iroc) << ": " << fApi->_dut->getNMaskedPixels(static_cast<int>(iroc));
+  }  
+  
+  // Start the DAQ:
+  //::::::::::::::::::::::::::::::::
+
+  //:::Setting register to read back a given quantity::::://
+
+  //First send only a RES:
+  fPg_setup.push_back(make_pair("resetroc", 0));     // PG_RESR b001000 
+  uint16_t period = 28;
+
+  //Set the pattern generator:
+  fApi->setPatternGenerator(fPg_setup);
+
+  fApi->daqStart();
+
+  //Send only one trigger to reset:
+  fApi->daqTrigger(1, period);
+  LOG(logINFO) << "PixTestReadbackScan::RES sent once ";
+
+  fApi->daqStop();
+
+  fPg_setup.clear();
+  LOG(logINFO) << "PixTestReadbackScan::PG_Setup clean";
+
+  //Set the pattern wrt the trigger frequency:
+  LOG(logINFO) << "PG set to have trigger frequency = " << fParTriggerFrequency << " kHz";
+  if (!setTrgFrequency(20)){
+	  FinalCleaning();
+	  return;
+  }
+
+  //Set pattern generator:
+  fApi->setPatternGenerator(fPg_setup);
+
+  fDaq_loop = true;
+
+  //Start the DAQ:
+  fApi->daqStart();
+
+  int  Ntrig=32;
+  //Send the triggers:
+  fApi->daqTrigger(Ntrig, fParPeriod);
+  gSystem->ProcessEvents();
+  ProcessData(0);
+ 
+  fApi->daqStop(); 
 }
