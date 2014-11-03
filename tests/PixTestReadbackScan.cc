@@ -334,16 +334,14 @@ void PixTestReadbackScan::FinalCleaning() {
 void PixTestReadbackScan::doTest() {
   LOG(logINFO) << "PixTestReadbackScan::doTest() start.";
 
-  cacheDacs();
-
   CalibrateVd();
   CalibrateVa();
   readbackVbg();
   getCalibratedVbg();
   CalibrateIa();
-  for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
-    (*il)->Draw((getHistOption(*il)).c_str()); 
-  }
+ for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
+   (*il)->Draw((getHistOption(*il)).c_str()); 
+ }
 
   ofstream myfile;
   myfile.open ((fPixSetup->getConfigParameters()->getDirectory()+"/ReadbackCal.dat").c_str(), ios::app);
@@ -355,8 +353,6 @@ void PixTestReadbackScan::doTest() {
   myfile << fPar0RbIaCal << "    " << fPar1RbIaCal << "    " << fPar0TbIaCal << "    " << fPar1TbIaCal << "    " << fPar2TbIaCal << endl;
   myfile.close();
   
-  restoreDacs();
-
  LOG(logINFO) << "PixTestReadbackScan::doTest() done";
 
 }
@@ -374,7 +370,10 @@ void PixTestReadbackScan::CalibrateIa(){
   double tbIa = 0.;
   vector<double > rbIa;
   
-  for(uint8_t vana=0; vana<255; vana++){
+  uint8_t vana=0;
+
+  for(int ivana=0; ivana<52; ivana++){
+    vana = (uint8_t)ivana*5;
     readback=daqReadback("vana", vana, fParReadback);
     rbIa.push_back(readback);
     fApi->setDAC("vana", vana);
@@ -403,12 +402,16 @@ void PixTestReadbackScan::CalibrateIa(){
   fPar1RbIaCal=frb->GetParameter(1);
   fPar0TbIaCal=ftb->GetParameter(0);
   fPar1TbIaCal=ftb->GetParameter(1);
+  LOG(logDEBUG)<<"just before parameter 2";
   fPar2TbIaCal=ftb->GetParameter(2);
+  LOG(logDEBUG)<<"just after parameter 2";
 
   TH1D* h_rbIaCal = new TH1D("rbIaCal","rbIaCal", 256, 0., 256.);
-  for(int vana=0; vana<256; vana++){
+  for(int ivana=0; ivana<52; ivana++){
+    LOG(logDEBUG)<<"step ivana = "<<ivana;
+    vana = (uint8_t)ivana*5;
     //    h_rbIaCal->Fill(vana, ((tbpar1/rbpar1)*(rbIa[vana]-rbpar0)+tbpar0));
-    h_rbIaCal->Fill(vana, (rbIa[vana]*rbIa[vana]*fPar2TbIaCal/fPar1RbIaCal/fPar1RbIaCal + rbIa[vana]/fPar1RbIaCal/fPar1RbIaCal*(fPar1RbIaCal*fPar1TbIaCal-2*fPar0RbIaCal*fPar2TbIaCal) + (fPar0RbIaCal*fPar0RbIaCal*fPar2TbIaCal - fPar0RbIaCal*fPar1TbIaCal)/fPar1RbIaCal + fPar0TbIaCal));
+    h_rbIaCal->Fill(vana, (rbIa[ivana]*rbIa[ivana]*fPar2TbIaCal/fPar1RbIaCal/fPar1RbIaCal + rbIa[ivana]/fPar1RbIaCal/fPar1RbIaCal*(fPar1RbIaCal*fPar1TbIaCal-2*fPar0RbIaCal*fPar2TbIaCal) + (fPar0RbIaCal*fPar0RbIaCal*fPar2TbIaCal - fPar0RbIaCal*fPar1TbIaCal)/fPar1RbIaCal + fPar0TbIaCal));
   }
 
   h_rbIaCal->SetLineColor(kBlue);
@@ -419,7 +422,6 @@ void PixTestReadbackScan::CalibrateIa(){
 }
 
 double PixTestReadbackScan::getCalibratedIa(){
-  cacheDacs();
   //readback DAC set to 12 (i.e. Ia)
   fParReadback=12;
 
@@ -429,7 +431,6 @@ double PixTestReadbackScan::getCalibratedIa(){
   readback=daqReadbackIa();
   //  calIa = ((fPar1TbIaCal/fPar1RbIaCal)*((double)readback-fPar0RbIaCal)+fPar0TbIaCal);
   calIa = (((double)readback)*((double)readback)*fPar2TbIaCal/fPar1RbIaCal/fPar1RbIaCal + ((double)readback)/fPar1RbIaCal/fPar1RbIaCal*(fPar1RbIaCal*fPar1TbIaCal-2*fPar0RbIaCal*fPar2TbIaCal) + (fPar0RbIaCal*fPar0RbIaCal*fPar2TbIaCal - fPar0RbIaCal*fPar1TbIaCal)/fPar1RbIaCal + fPar0TbIaCal);
-  restoreDacs();
   LOG(logDEBUG)<<"Calibrated analog current is "<<calIa;
   return  calIa;
 }
@@ -492,16 +493,20 @@ void PixTestReadbackScan::CalibrateVd(){
   //readback DAC set to 8 (i.e. Vd)
   fParReadback=8;
 
-  int readback=0;
+  int readback;
 
-  TH1D* h_rbVd = new TH1D("rbVd","rbVd", 90, 0., 5.);
-  TH1D* h_dacVd = new TH1D("dacVd","dacVd", 90, 0., 5.);
+  TH1D* h_rbVd = new TH1D("rbVd","rbVd", 500, 0., 5.);
+  TH1D* h_dacVd = new TH1D("dacVd","dacVd", 500, 0., 5.);
   vector<double > rbVd;
   double Vd;
 
-  for(int iVd=0; iVd<15; iVd++){
+  //dry run to avoid spikes
+  readback=daqReadback("vd", 2.1, fParReadback);
+  readback=0;
+
+  for(int iVd=0; iVd<18; iVd++){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VD FUNCTION :::::****/";
-    Vd = 2.1 + iVd*0.06;
+    Vd = 2.1 + iVd*0.05;
     LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
     readback=daqReadback("vd", Vd, fParReadback);
     LOG(logDEBUG)<<"Voltage "<<Vd<<", readback "<<readback;
@@ -582,16 +587,20 @@ void PixTestReadbackScan::CalibrateVa(){
   //readback DAC set to 9 (i.e. Va)
   fParReadback=9;
 
-  int readback=0;
+  int readback;
 
-  TH1D* h_rbVa = new TH1D("rbVa","rbVa", 90, 0., 5.);
-  TH1D* h_dacVa = new TH1D("dacVa","dacVa", 90, 0., 5.);
+  TH1D* h_rbVa = new TH1D("rbVa","rbVa", 500, 0., 5.);
+  TH1D* h_dacVa = new TH1D("dacVa","dacVa", 500, 0., 5.);
   vector<double > rbVa;
   double Va;
+  
+  //dry run to avoid spikes
+  readback=daqReadback("va", 1.5, fParReadback);
+  readback=0;
 
-  for(int iVa=0; iVa<55; iVa++){
+  for(int iVa=0; iVa<18; iVa++){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VA FUNCTION :::::****/";
-    Va = 1.5 + iVa*0.06;
+    Va = 1.5 + iVa*0.05;
     LOG(logDEBUG)<<"Analog voltage will be set to: "<<Va;
     readback=daqReadback("va", Va, fParReadback);
     LOG(logDEBUG)<<"Voltage "<<Va<<", readback "<<readback;
