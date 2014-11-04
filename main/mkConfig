@@ -444,7 +444,7 @@ phmin               30
 phmax               220
 PIX                 11,20
 
--- ReadbackScan
+-- Readback
 calibrateVd         button
 calibrateVa         button
 calibrateIa         button

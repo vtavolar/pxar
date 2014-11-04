@@ -17,7 +17,7 @@
 #include "PixTestPretest.hh"
 #include "PixTestPattern.hh"
 #include "PixTestDaq.hh"
-#include "PixTestReadbackScan.hh"
+#include "PixTestReadback.hh"
 #include "PixTestXray.hh"
 #include "PixTestHighRate.hh"
 #include "PixTestPh.hh"
@@ -72,7 +72,7 @@ PixTest* PixTestFactory::createTest(string name, PixSetup *a) {
   if (!name.compare("tbm")) return new PixTestTbm(a, "Tbm"); 
   if (!name.compare("trim")) return new PixTestTrim(a, "Trim");
   if (!name.compare("daq")) return new PixTestDaq(a, "DAQ"); 
-  if (!name.compare("readbackscan")) return new PixTestReadbackScan(a, "ReadbackScan");  
+  if (!name.compare("readback")) return new PixTestReadback(a, "Readback");  
   if (!name.compare("xray")) return new PixTestXray(a, "Xray"); 
   if (!name.compare("highrate")) return new PixTestHighRate(a, "HighRate"); 
   if (!name.compare("ph")) return new PixTestPh(a, "Ph");
