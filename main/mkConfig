@@ -456,11 +456,7 @@ save                button
 ntrig               10
 singlePix           0
 safetymarginlow     30
-<<<<<<< HEAD
-safetymarginup      10     
-=======
 safetymarginup      10
->>>>>>> 755391ed60442615ee5a7f292f561562e0b4d246
 
 -- PhOpt
 adjustvthrcomp      checkbox(0)
