@@ -40,12 +40,12 @@ bool PixTestGainPedestal::setParameter(string parName, string sval) {
       found = true; 
       sval.erase(remove(sval.begin(), sval.end(), ' '), sval.end());
       if (!parName.compare("showfits")) {
+	PixUtil::replaceAll(sval, "checkbox(", "");
+	PixUtil::replaceAll(sval, ")", "");
 	fParShowFits = atoi(sval.c_str()); 
-	LOG(logDEBUG) << "  setting fParShowFits  ->" << fParShowFits << "<- from sval = " << sval;
       }
       if (!parName.compare("ntrig")) {
 	fParNtrig = atoi(sval.c_str()); 
-	LOG(logDEBUG) << "  setting fParNtrig  ->" << fParNtrig << "<- from sval = " << sval;
       }
       setToolTips();
       break;
@@ -141,7 +141,7 @@ void PixTestGainPedestal::runCommand(string command) {
 
 // ----------------------------------------------------------------------
 void PixTestGainPedestal::measure() {
-  uint16_t FLAGS = FLAG_FORCE_MASKED | FLAG_FORCE_SERIAL;
+  uint16_t FLAGS = FLAG_FORCE_MASKED;
   LOG(logDEBUG) << " using FLAGS = "  << (int)FLAGS; 
 
   cacheDacs();
@@ -195,7 +195,7 @@ void PixTestGainPedestal::measure() {
 	LOG(logCRITICAL) << "pXar execption: "<< e.what(); 
 	++cnt;
       }
-      done = (cnt>5) || done;
+      done = (cnt>2) || done;
     }
   }
 
@@ -219,7 +219,7 @@ void PixTestGainPedestal::measure() {
 	LOG(logCRITICAL) << "pXar execption: "<< e.what(); 
 	++cnt;
       }
-      done = (cnt>5) || done;
+      done = (cnt>2) || done;
     }
   }
 
@@ -283,8 +283,8 @@ void PixTestGainPedestal::fit() {
   fDirectory->cd();
 
 
-  TH1D *h1 = (*fHists.begin()).second; 
-  TF1 *f = fPIF->gpTanH(h1); 
+  TH1D *h1(0); 
+  TF1 *f(0); 
 
   vector<vector<gainPedestalParameters> > v;
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
@@ -307,6 +307,7 @@ void PixTestGainPedestal::fit() {
   int ic, ir, iroc, idx; 
   for (map<string, TH1D*>::iterator i = fHists.begin(); i != hend; ++i) {
     h1 = (*i).second; 
+    f = fPIF->gpTanH(h1); 
     if (h1->GetEntries() < 1) continue;
     string h1name = h1->GetName();
     if (fParShowFits) {

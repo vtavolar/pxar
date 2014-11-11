@@ -120,6 +120,14 @@ TGMainFrame(p, 1, 1, kVerticalFrame), fWidth(w), fHeight(h) {
     hvOff();
   }
 
+  // allow tests (bare module test in particular) to switch off HV
+  Connect("PixTest", "hvOn()", "PixGui", this, "hvOn()"); 
+  Connect("PixTest", "hvOff()", "PixGui", this, "hvOff()"); 
+
+  // allow tests (bare module test in particular) to switch off DTB power
+  Connect("PixTest", "powerOn()", "PixGui", this, "powerOn()"); 
+  Connect("PixTest", "powerOff()", "PixGui", this, "powerOff()"); 
+
   hvFrame->AddFrame(fbtnHV, new TGLayoutHints(kLHintsRight, fBorderN, fBorderN, fBorderN, fBorderN));
 
   hwControl->AddFrame(hvFrame);
@@ -397,17 +405,9 @@ void PixGui::handleButtons(Int_t id) {
   }
   case B_POWER: {
     if(fPower == true) {
-      fPower = false;
-      fbtnPower->ChangeBackground(fRed);
-      fbtnPower->SetText("Off");
-      fApi->Poff(); 
-      LOG(logDEBUG) << "Power set Off";
+      powerOff();
     } else {
-      fPower = true;
-      fbtnPower->ChangeBackground(fGreen);
-      fbtnPower->SetText("On");
-      fApi->Pon(); 
-      LOG(logDEBUG) << "Power set On";
+      powerOn();
     }
     break;
   }
@@ -423,6 +423,29 @@ void PixGui::handleButtons(Int_t id) {
     break;
   }
 }
+
+// ----------------------------------------------------------------------
+void PixGui::powerOn() {
+  if (fApi) {
+    fPower = true;
+    fbtnPower->ChangeBackground(fGreen);
+    fbtnPower->SetText("On");
+    fApi->Pon(); 
+    LOG(logDEBUG) << "Power set On";
+  }
+}
+
+// ----------------------------------------------------------------------
+void PixGui::powerOff() {
+  if (fApi) {
+    fPower = false;
+    fbtnPower->ChangeBackground(fRed);
+    fbtnPower->SetText("Off");
+    fApi->Poff(); 
+    LOG(logDEBUG) << "Power set Off";
+  }
+}
+
 
 // ----------------------------------------------------------------------
 void PixGui::hvOn() {
@@ -498,9 +521,9 @@ PixTest* PixGui::createTest(string testname) {
 
 // ----------------------------------------------------------------------
 void PixGui::selectedTab(int id) {
-  LOG(logDEBUG) << "Switched to tab " << id;
   if (0 == id) fParTab->updateParameters();
-  fTabs->SetTab(id); 
+  fTabs->SetTab(id);
+  LOG(logDEBUG) << "Switched to tab " << id;
 }
 
 
@@ -529,4 +552,9 @@ void PixGui::updateSelectedRocs(map<int, int> a) {
   }
 
 
+}
+
+// ----------------------------------------------------------------------
+std::string PixGui::getHdiType() {
+  return fConfigParameters->getHdiType();
 }
