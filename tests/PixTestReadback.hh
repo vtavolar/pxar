@@ -32,7 +32,7 @@ public:
   void CalibrateVana();
   void CalibrateVd();
   void CalibrateVa();
-  void getCalibratedVbg();
+  double getCalibratedVbg();
   void readbackVbg();
   void doTest();
   double getCalibratedIa();
