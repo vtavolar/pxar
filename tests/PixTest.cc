@@ -11,6 +11,7 @@
 
 #include "PixTest.hh"
 #include "PixUtil.hh"
+#include "timer.h"
 #include "log.h"
 #include "helper.h"
 #include "rsstools.hh"
@@ -28,6 +29,8 @@ PixTest::PixTest(PixSetup *a, string name) {
   fApi            = a->getApi(); 
   fTestParameters = a->getPixTestParameters(); 
   fTimeStamp      = new TTimeStamp(); 
+
+  fProblem        = false; 
 
   fName = name;
   setToolTips();
@@ -176,6 +179,7 @@ vector<TH1*> PixTest::scurveMaps(string dac, string name, int ntrig, int dacmin,
   
   shist256 *pshistBlock  = new (fPixSetup->fPxarMemory) shist256[16*52*80]; 
   shist256 *ph;
+  rsstools rss;
 
   int idx(0);
   for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc) {
@@ -194,7 +198,7 @@ vector<TH1*> PixTest::scurveMaps(string dac, string name, int ntrig, int dacmin,
     scurveAna(dac, name, maps, resultMaps, result); 
   } 
 
-  LOG(logDEBUG) << "PixTest::scurveMaps end: getCurrentRSS() = " << getCurrentRSS();
+  LOG(logDEBUG) << "PixTest::scurveMaps end: getCurrentRSS() = " << rss.getCurrentRSS();
 
   return resultMaps; 
 }
@@ -523,6 +527,30 @@ void PixTest::testDone() {
 void PixTest::update() {
   //  cout << "PixTest::update()" << endl;
   Emit("update()"); 
+}
+
+// ----------------------------------------------------------------------
+void PixTest::hvOn() {
+  //  cout << "PixTest::hvOn()" << endl;
+  Emit("hvOn()"); 
+}
+
+// ----------------------------------------------------------------------
+void PixTest::hvOff() {
+  //  cout << "PixTest::hvOff()" << endl;
+  Emit("hvOff()"); 
+}
+
+// ----------------------------------------------------------------------
+void PixTest::powerOn() {
+  //  cout << "PixTest::powerOn()" << endl;
+  Emit("powerOn()"); 
+}
+
+// ----------------------------------------------------------------------
+void PixTest::powerOff() {
+  //  cout << "PixTest::powerOff()" << endl;
+  Emit("powerOff()"); 
 }
 
 
@@ -1508,3 +1536,188 @@ pair<vector<TH2D*>,vector<TH2D*> > PixTest::xEfficiencyMaps(string name, uint16_
   return make_pair(maps, xMaps); 
 }
 
+
+// ----------------------------------------------------------------------
+void PixTest::maskPixels() {
+  string mfile = fPixSetup->getConfigParameters()->getDirectory() + "/" + fPixSetup->getConfigParameters()->getMaskFileName();
+  vector<vector<pair<int, int> > > vmask = fPixSetup->getConfigParameters()->readMaskFile(mfile); 
+
+  for (unsigned int i = 0; i < vmask.size(); ++i) {
+    vector<pair<int, int> > mask = vmask[i]; 
+    for (unsigned int ipix = 0; ipix < mask.size(); ++ipix) {
+      LOG(logINFO) << "ROC " << getIdFromIdx(i) << " masking pixel " << mask[ipix].first << "/" << mask[ipix].second; 
+      fApi->_dut->maskPixel(mask[ipix].first, mask[ipix].second, true, getIdFromIdx(i)); 
+    }
+  }
+
+}
+
+
+// ----------------------------------------------------------------------
+void PixTest::pgToDefault() {
+  fPg_setup.clear();
+  fPg_setup = fPixSetup->getConfigParameters()->getTbPgSettings();
+  fApi->setPatternGenerator(fPg_setup);
+  LOG(logINFO) << "PixTest::       pg_setup set to default.";
+}
+
+// ----------------------------------------------------------------------
+void PixTest::finalCleanup() {
+  pgToDefault();
+  fPg_setup.clear();
+}
+
+// ----------------------------------------------------------------------
+void PixTest::resetROC() {
+  // -- setup DAQ for data taking
+  fPg_setup.clear();
+  fPg_setup.push_back(make_pair("resetroc", 0)); // PG_RESR b001000
+  uint16_t period = 28;
+  fApi->setPatternGenerator(fPg_setup);
+  fApi->daqStart();
+  fApi->daqTrigger(1, period);
+  LOG(logDEBUG) << "PixTest: resetROC sent once.";
+  fApi->daqStop();
+  fPg_setup.clear();
+}
+
+// ----------------------------------------------------------------------
+void PixTest::resetTBM() {
+  // -- setup DAQ for data taking
+  fPg_setup.clear();
+  fPg_setup.push_back(make_pair("resettbm", 0)); // PG_RESR b001000
+  uint16_t period = 28;
+  fApi->setPatternGenerator(fPg_setup);
+  fApi->daqStart();
+  fApi->daqTrigger(1, period);
+  LOG(logDEBUG) << "PixTest: resetTBM sent once.";
+  fApi->daqStop();
+  fPg_setup.clear();
+}
+
+// ----------------------------------------------------------------------
+uint16_t PixTest::prepareDaq(int triggerFreq, uint8_t trgTkDel) {
+  resetROC(); 
+  uint16_t totalPeriod = setTriggerFrequency(triggerFreq, trgTkDel);
+  fApi->setPatternGenerator(fPg_setup);
+  return totalPeriod;
+}
+
+// ----------------------------------------------------------------------
+uint16_t PixTest::setTriggerFrequency(int triggerFreq, uint8_t trgTkDel) {
+
+  uint16_t nDel = 0;
+  uint16_t totalPeriod = 0;
+  
+  double period_ns = 1 / (double)triggerFreq * 1000000; // trigger frequency in kHz.
+  double clkDelays = period_ns / 25 - trgTkDel;
+  uint16_t ClkDelays = (uint16_t)clkDelays; // aproximate to defect
+  
+  fPg_setup.clear();
+  
+  // -- add right delay between triggers:
+  uint16_t i = ClkDelays;
+  while (i>255){
+    fPg_setup.push_back(make_pair("delay", 255));
+    i = i - 255;
+    nDel++;
+  }
+  fPg_setup.push_back(make_pair("delay", i));
+  
+  // -- then send trigger and token:
+  fPg_setup.push_back(make_pair("trg", trgTkDel));    // PG_TRG b000010
+  fPg_setup.push_back(make_pair("tok", 0));    // PG_TOK
+  if (0) for (unsigned int i = 0; i < fPg_setup.size(); ++i) cout << fPg_setup[i].first << ": " << (int)fPg_setup[i].second << endl;
+  
+  totalPeriod = ((uint16_t)period_ns / 25) + 4 + nDel; //+4 to align to the new pg minimum (1 additional clk cycle per PG call);
+  return totalPeriod;
+}
+
+// ----------------------------------------------------------------------
+void PixTest::maskHotPixels(std::vector<TH2D*> v) {
+
+  int NSECONDS(10); 
+  int TRGFREQ(100); // in kiloHertz
+
+  banner(Form("PixTest::maskHotPixels() running for %d seconds with %d kHz trigger rate", NSECONDS, TRGFREQ));
+
+  fHotPixels.clear(); 
+
+  fApi->_dut->testAllPixels(false);
+  fApi->_dut->maskAllPixels(false);
+
+  int totalPeriod = prepareDaq(TRGFREQ, (uint8_t)500);
+  
+  timer t;
+  uint8_t perFull;
+  bool daq_loop = true;
+    
+  fApi->daqStart();
+
+  int finalPeriod = fApi->daqTriggerLoop(totalPeriod);
+  LOG(logINFO) << "PixTestHighRate::maskHotPixels start TriggerLoop with period " << finalPeriod 
+	       << " and duration " << NSECONDS << " seconds and trigger rate " << TRGFREQ << " kHz";
+  
+  while (fApi->daqStatus(perFull) && daq_loop) {
+    if (perFull > 80) {
+      LOG(logINFO) << "Buffer almost full, pausing triggers.";
+      fApi->daqTriggerLoopHalt();
+
+      // fillMap(v):
+      vector<pxar::Event> daqdat = fApi->daqGetEventBuffer();
+      for(std::vector<pxar::Event>::iterator it = daqdat.begin(); it != daqdat.end(); ++it) {
+	for (unsigned int ipix = 0; ipix < it->pixels.size(); ++ipix) {
+	  v[getIdxFromId(it->pixels[ipix].roc())]->Fill(it->pixels[ipix].column(), it->pixels[ipix].row());
+	}
+      }
+
+      LOG(logINFO) << "Resuming triggers.";
+	  fApi->daqTriggerLoop(finalPeriod);
+    }
+    
+    if (static_cast<int>(t.get()/1000) >= NSECONDS)	{
+      LOG(logINFO) << "Done with hot pixel readout";
+      daq_loop = false;
+      break;
+    }
+  }
+    
+  fApi->daqTriggerLoopHalt();
+  fApi->daqStop();
+
+  // fillMap(v):
+  vector<pxar::Event> daqdat = fApi->daqGetEventBuffer();
+  for(std::vector<pxar::Event>::iterator it = daqdat.begin(); it != daqdat.end(); ++it) {
+    for (unsigned int ipix = 0; ipix < it->pixels.size(); ++ipix) {
+      v[getIdxFromId(it->pixels[ipix].roc())]->Fill(it->pixels[ipix].column(), it->pixels[ipix].row());
+    }
+  }
+
+  finalCleanup();
+
+
+  // -- analysis of hit map
+  double THR = 1.e-4*NSECONDS*TRGFREQ*1000; 
+  LOG(logDEBUG) << "hot pixel determination with THR = " << THR; 
+  int cntHot(0); 
+  TH2D *h(0); 
+  for (unsigned int i = 0; i < v.size(); ++i) {
+    h = v[i]; 
+    vector<pair<int, int> > hot; 
+    for (int ix = 0; ix < h->GetNbinsX(); ++ix) {
+      for (int iy = 0; iy < h->GetNbinsY(); ++iy) {
+	if (h->GetBinContent(ix+1, iy+1) > THR) {
+	  ++cntHot; 
+	  LOG(logDEBUG) << "ROC " << i << " with hot pixel " << ix << "/" << iy << ",  hits = " << h->GetBinContent(ix+1, iy+1);
+	  hot.push_back(make_pair(ix, iy)); 
+	}
+      }
+    }
+    fHotPixels.push_back(hot); 
+  }
+  if (0 == cntHot) {
+    LOG(logDEBUG) << "no hot pixel found!";
+  }
+  LOG(logINFO) << "PixTest::maskHotPixels() done";
+
+}

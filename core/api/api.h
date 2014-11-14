@@ -724,8 +724,11 @@ namespace pxar {
      *  Returns true if everything is setup correctly for operation
      */
     bool status();
-    
-    
+
+    /** Get ADC value
+     */
+    uint16_t GetADC( uint8_t rpc_par1 ) ;
+
   private:
 
     /** Private HAL object for the API to access hardware routines
@@ -860,6 +863,9 @@ namespace pxar {
 
     /** Number of pixel decoding errors in last DAQ readout */
     uint32_t _ndecode_errors_lastdaq;
+
+    /** Warned the user about not initializing the DUT */
+    bool _daq_startstop_warning;
     
   }; // class pxarCore
 
@@ -888,9 +894,17 @@ namespace pxar {
      */
     size_t getNEnabledPixels(uint8_t rocid);
 
+    /** Function returning the number of enabled pixels on all ROCs:
+     */
+    size_t getNEnabledPixels();
+
     /** Function returning the number of masked pixels on a specific ROC:
      */
     size_t getNMaskedPixels(uint8_t rocid);
+
+    /** Function returning the number of masked pixels on all ROCs:
+     */
+    size_t getNMaskedPixels();
 
     /** Function returning the number of enabled TBMs:
      */
@@ -919,6 +933,18 @@ namespace pxar {
     /** Function returning the enabled pixels configs for a specific ROC:
      */
     std::vector< pixelConfig > getEnabledPixels(size_t rocid);
+
+    /** Function returning the enabled pixels configs for all ROCs:
+     */
+    std::vector< pixelConfig > getEnabledPixels();
+
+    /** Function returning all masked pixels configs for a specific ROC:
+     */
+    std::vector< pixelConfig > getMaskedPixels(size_t rocid);
+
+    /** Function returning all masked pixels configs for all ROCs:
+     */
+    std::vector< pixelConfig > getMaskedPixels();
 
     /** Function returning the enabled ROC configs
      */

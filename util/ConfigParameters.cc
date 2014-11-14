@@ -9,8 +9,8 @@
 #include <cstdlib>
 #include <stdio.h>
 
-#include "log.h"
 #include "dictionaries.h"
+#include "log.h"
 
 #include "ConfigParameters.hh"
 
@@ -42,9 +42,8 @@ void ConfigParameters::initialize() {
   fnTbms = 1; 
   fnModules = 1;
   fHubId = 31;
+  fI2cAddresses.clear(); 
   
-  fCustomModule = 0;
-
   fHvOn = true;
   fTbmEnable = true;
   fTbmEmulator = false;
@@ -81,8 +80,10 @@ void ConfigParameters::initialize() {
   fProbeD2 = "ctr";
 
   rocZeroAnalogCurrent = 0.0;
-  fRocType = "psi46v2";
+  fRocType = "psi46digv21respin";
   fTbmType = ""; 
+  fHdiType = "bpix"; 
+  fTBName = "*"; 
 }
 
 
@@ -163,10 +164,9 @@ bool ConfigParameters::readConfigParameterFile(string file) {
       else if (0 == _name.compare("maskFile")) { setMaskFileName(_value); }
 
       else if (0 == _name.compare("nModules")) { fnModules                  = _ivalue; }
-      else if (0 == _name.compare("nRocs")) { fnRocs                     = _ivalue; }
+      else if (0 == _name.compare("nRocs")) { readNrocs(_istring.str()); }
       else if (0 == _name.compare("nTbms")) { fnTbms                     = _ivalue; }
       else if (0 == _name.compare("hubId")) { fHubId                     = _ivalue; }
-      else if (0 == _name.compare("customModule")) { fCustomModule              = _ivalue; }
       else if (0 == _name.compare("halfModule")) { fHalfModule                = _ivalue; }
       else if (0 == _name.compare("emptyReadoutLength")) { fEmptyReadoutLength        = _ivalue; }
       else if (0 == _name.compare("emptyReadoutLengthADC")) { fEmptyReadoutLengthADC     = _ivalue; }
@@ -186,6 +186,7 @@ bool ConfigParameters::readConfigParameterFile(string file) {
 
       else if (0 == _name.compare("rocType")) { fRocType = _value; }
       else if (0 == _name.compare("tbmType")) { fTbmType = _value; }
+      else if (0 == _name.compare("hdiType")) { fHdiType = _value; }
 
       else if (0 == _name.compare("probeA1")) { fProbeA1 = _value; }
       else if (0 == _name.compare("probeA2")) { fProbeA2 = _value; }
@@ -231,12 +232,8 @@ vector<pair<string, uint8_t> > ConfigParameters::readDacFile(string fname) {
   for (unsigned int i = 0; i < lines.size(); ++i) {
     //    cout << lines[i] << endl;   
     // -- remove tabs, adjacent spaces, leading and trailing spaces
-    replaceAll(lines[i], "\t", " "); 
-    string::iterator new_end = unique(lines[i].begin(), lines[i].end(), ConfigParameters::bothAreSpaces);
-    lines[i].erase(new_end, lines[i].end()); 
+    cleanupString(lines[i]);
     if (lines[i].length() < 2) continue;
-    if (lines[i].substr(0, 1) == string(" ")) lines[i].erase(0, 1); 
-    if (lines[i].substr(lines[i].length()-1, 1) == string(" ")) lines[i].erase(lines[i].length()-1, 1); 
     s1 = lines[i].find(" "); 
     s2 = lines[i].rfind(" "); 
     if (s1 != s2) {
@@ -277,7 +274,11 @@ void ConfigParameters::readTbParameters() {
   if (!fReadTbParameters) {
     string filename = fDirectory + "/" + fTBParametersFileName; 
     fTbParameters = readDacFile(filename); 
-    LOG(logDEBUG) << dumpParameters(fTbParameters);
+    // Cannot use LOG(...) for this printout, as pxarCore is instantiated only afterwards ...
+    for (unsigned int i = 0; i < fTbParameters.size(); ++i) {
+      //      LOG(logDEBUG) << fTbParameters[i].first << ": " << (int)fTbParameters[i].second;
+      LOG(logINFO) << "        " << fTbParameters[i].first << ": " << (int)fTbParameters[i].second;
+    }
     fReadTbParameters = true; 
   }
 }
@@ -425,7 +426,7 @@ void ConfigParameters::readTrimFile(string fname, vector<pxar::pixelConfig> &v) 
     // -- remove tabs, adjacent spaces, leading and trailing spaces
     replaceAll(lines[i], "\t", " "); 
     replaceAll(lines[i], "Pix", " "); 
-    string::iterator new_end = unique(lines[i].begin(), lines[i].end(), ConfigParameters::bothAreSpaces);
+    string::iterator new_end = unique(lines[i].begin(), lines[i].end(), bothAreSpaces);
     lines[i].erase(new_end, lines[i].end()); 
     if (0 == lines[i].length()) continue;
     if (lines[i].substr(0, 1) == string(" ")) lines[i].erase(0, 1); 
@@ -484,17 +485,12 @@ vector<vector<pair<int, int> > > ConfigParameters::readMaskFile(string fname) {
     //    cout << lines[i] << endl;   
     if (lines[i].substr(0, 1) == string("#")) continue;
     // -- remove tabs, adjacent spaces, leading and trailing spaces
-    replaceAll(lines[i], "\t", " "); 
-    replaceAll(lines[i], "Pix", " "); 
-    string::iterator new_end = unique(lines[i].begin(), lines[i].end(), ConfigParameters::bothAreSpaces);
-    lines[i].erase(new_end, lines[i].end()); 
-    if (lines[i].substr(0, 1) == string(" ")) lines[i].erase(0, 1); 
+    cleanupString(lines[i]); 
     if (0 == lines[i].length()) continue;
-    if (lines[i].substr(lines[i].length()-1, 1) == string(" ")) lines[i].erase(lines[i].length()-1, 1); 
 
     s1 = lines[i].find("roc"); 
     if (string::npos != s1) {
-      str3 = lines[i].substr(s1+1); 
+      str3 = lines[i].substr(s1+4); 
       iroc = atoi(str3.c_str()); 
       //      cout << "masking all pixels for ROC " << iroc << endl;
       if (iroc < fnRocs) {
@@ -734,8 +730,6 @@ bool ConfigParameters::writeConfigParameterFile() {
 
   fprintf(file, "-- configuration\n\n");
 
-  if (fCustomModule) fprintf(file, "customModule %i\n", fCustomModule);
-
   fprintf(file, "nModules %i\n", fnModules);
   fprintf(file, "nRocs %i\n", fnRocs);
   fprintf(file, "nTbms %i\n", fnTbms);
@@ -746,7 +740,7 @@ bool ConfigParameters::writeConfigParameterFile() {
   fprintf(file, "tbmChannel %i\n", fTbmChannel);
   fprintf(file, "rocType %s\n", fRocType.c_str());
   if (fnTbms > 0) fprintf(file, "tbmType %s\n", fTbmType.c_str());
-  fprintf(file, "halfModule %i\n", fHalfModule);
+  fprintf(file, "hdiType %s\n", fHdiType.c_str());
 
   fprintf(file, "\n");
   fprintf(file, "-- voltages and current limits\n\n");
@@ -900,8 +894,10 @@ void ConfigParameters::readGainPedestalParameters() {
   vector<string> lines; 
   char  buffer[5000];
   ifstream is;
+  vector<gainPedestalParameters> rocPar; 
   for (unsigned int iroc = 0; iroc < fnRocs; ++iroc) {
-    vector<gainPedestalParameters> rocPar; 
+    lines.clear();
+    rocPar.clear();
     std::stringstream fname;
     fname.str(std::string());
     fname << fDirectory << "/" << bname << fTrimVcalSuffix << "_C" << iroc << ".dat"; 
@@ -1007,8 +1003,17 @@ std::string ConfigParameters::getProbe(std::string probe) {
 }
 
 
-
-
+// ----------------------------------------------------------------------
+void ConfigParameters::cleanupString(string &s) {
+  replaceAll(s, "\t", " "); 
+  string::size_type s1 = s.find("#");
+  if (string::npos != s1) s.erase(s1); 
+  if (0 == s.length()) return;
+  string::iterator new_end = unique(s.begin(), s.end(), bothAreSpaces);
+  s.erase(new_end, s.end()); 
+  if (s.substr(0, 1) == string(" ")) s.erase(0, 1); 
+  if (s.substr(s.length()-1, 1) == string(" ")) s.erase(s.length()-1, 1); 
+}
 
 // ----------------------------------------------------------------------
 bool ConfigParameters::bothAreSpaces(char lhs, char rhs) { 
@@ -1022,5 +1027,34 @@ void ConfigParameters::replaceAll(string& str, const string& from, const string&
   while((start_pos = str.find(from, start_pos)) != string::npos) {
     str.replace(start_pos, from.length(), to);
     start_pos += to.length(); // In case 'to' contains 'from', like replacing 'x' with 'yx'
+  }
+}
+
+// ----------------------------------------------------------------------
+void ConfigParameters::readNrocs(string line) {
+  cleanupString(line);
+  string::size_type s0 = line.find(" "); 
+  string nrocs = line.substr(s0); 
+  fnRocs = atoi(nrocs.c_str()); 
+  string::size_type s1 = line.find("i2c:"); 
+  if (string::npos == s1) {
+    return;
+  } else {
+    string i2cstring = line.substr(s1+5);
+    s0 = i2cstring.find(","); 
+    string i2c(""), leftover("");
+    while (string::npos != s0) {
+      i2c = i2cstring.substr(0, s0);
+      fI2cAddresses.push_back(atoi(i2c.c_str())); 
+      i2cstring = i2cstring.substr(s0+1); 
+      s0 = i2cstring.find(","); 
+    }
+    //  -- get the last one as well
+    fI2cAddresses.push_back(atoi(i2cstring.c_str())); 
+    if (fnRocs != fI2cAddresses.size()) {
+      LOG(logWARNING) << "mismatch between number of i2c addresses and nRocs! Resetting nRocs to " 
+		      <<  fI2cAddresses.size();
+      fnRocs =  fI2cAddresses.size(); 
+    }
   }
 }

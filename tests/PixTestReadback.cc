@@ -2,6 +2,7 @@
 #include <algorithm>    // std::find
 #include <iostream>
 #include <TStopwatch.h>
+#include <TStyle.h>
 #include "PixTestReadback.hh"
 #include "log.h"
 #include "helper.h"
@@ -378,6 +379,12 @@ void PixTestReadback::CalibrateIa(){
     h_tbIa->Fill(vana, tbIa);
   }
 
+  h_rbIa->GetXaxis()->SetTitle("Vana [DAC]");
+  h_rbIa->GetYaxis()->SetTitle("Ia_rb [ADC]");
+  h_tbIa->GetXaxis()->SetTitle("Vana [DAC]");
+  h_tbIa->GetYaxis()->SetTitle("Ia_TB [mA]");
+  gStyle->SetOptFit(1111);
+
   double rb_vanaMax=0.;
   double tb_vanaMax=0.;
    
@@ -410,6 +417,8 @@ void PixTestReadback::CalibrateIa(){
     h_rbIaCal->Fill(vana, (rbIa[ivana]*rbIa[ivana]*fPar2TbIaCal/fPar1RbIaCal/fPar1RbIaCal + rbIa[ivana]/fPar1RbIaCal/fPar1RbIaCal*(fPar1RbIaCal*fPar1TbIaCal-2*fPar0RbIaCal*fPar2TbIaCal) + (fPar0RbIaCal*fPar0RbIaCal*fPar2TbIaCal - fPar0RbIaCal*fPar1TbIaCal)/fPar1RbIaCal + fPar0TbIaCal));
   }
 
+  h_rbIaCal->GetXaxis()->SetTitle("Vana [DAC]");
+  h_rbIaCal->GetYaxis()->SetTitle("Ia_rb_cal [mA]");
   h_rbIaCal->SetLineColor(kBlue);
   fHistList.push_back(h_rbIa);
   fHistList.push_back(h_rbIaCal);
@@ -501,16 +510,23 @@ void PixTestReadback::CalibrateVd(){
   readback=0;
 
   for(int iVd=0; iVd<18; iVd++){
-    LOG(logDEBUG)<<"/****:::::: CALIBRATE VD FUNCTION :::::****/";
+    LOG(logDEBUG)<<"/****:::::: CALIBRATE VD :::::****/";
     Vd = 2.1 + iVd*0.05;
     LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
     readback=daqReadback("vd", Vd, fParReadback);
     LOG(logDEBUG)<<"Voltage "<<Vd<<", readback "<<readback;
     rbVd.push_back(readback);
     h_rbVd->Fill(Vd, readback);
-    h_dacVd->Fill(Vd, Vd);
+    h_dacVd->Fill(Vd, fApi->getTBvd());
   }
   
+  h_rbVd->GetXaxis()->SetTitle("Vd [V]");
+  h_rbVd->GetYaxis()->SetTitle("Vd_rb [ADC]");
+  h_dacVd->GetXaxis()->SetTitle("Vd set [V]");
+  h_dacVd->GetYaxis()->SetTitle("Vd TB [V]");
+
+  gStyle->SetOptFit(1111);
+
   TF1* frb = new TF1("lin_vd", "[0] + x*[1]");
 
   h_rbVd->Fit(frb, "W", "");
@@ -531,16 +547,13 @@ void PixTestReadback::readbackVbg(){
 
   int readback=0;
 
-  TH1D* h_rbVbg = new TH1D("rbVbg","rbVbg", 500, 0., 5.);
-  TH1D* h_dacVbg = new TH1D("dacVbg","dacVbg", 500, 0., 5.);
-  vector<double > rbVbg;
   double Vd;
 
   int n_meas=0.;
   double avReadback=0.;
 
   for(int i=0; i<10; i++){
-    LOG(logDEBUG)<<"/****:::::: CALIBRATE VBG FUNCTION :::::****/";
+    LOG(logDEBUG)<<"/****:::::: READBACK VBG :::::****/";
     Vd = 2.5;
     LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
     readback = daqReadback("vd", Vd, fParReadback);
@@ -549,15 +562,10 @@ void PixTestReadback::readbackVbg(){
       n_meas++;
     }
     LOG(logDEBUG)<<"Voltage "<<Vd<<", average readback "<<(double)readback/(i+1);
-    rbVbg.push_back(readback);
-    h_rbVbg->Fill(Vd, readback);
-    h_dacVbg->Fill(Vd, Vd);
   }
 
   fRbVbg = avReadback/n_meas;
- 
-  fHistList.push_back(h_rbVbg);
-  fHistList.push_back(h_dacVbg);
+
   restoreDacs();
 }
 
@@ -603,8 +611,15 @@ void PixTestReadback::CalibrateVa(){
     LOG(logDEBUG)<<"Voltage "<<Va<<", readback "<<readback;
     rbVa.push_back(readback);
     h_rbVa->Fill(Va, readback);
-    h_dacVa->Fill(Va, Va);
+    h_dacVa->Fill(Va, fApi->getTBva());
   }
+
+  h_rbVa->GetXaxis()->SetTitle("Va [V]");
+  h_rbVa->GetYaxis()->SetTitle("Va_rb [ADC]");
+  h_dacVa->GetXaxis()->SetTitle("Va set [V]");
+  h_dacVa->GetYaxis()->SetTitle("Va TB [V]");
+
+  gStyle->SetOptFit(1111);
 
   double rb_VaMax=0.;
   
@@ -635,21 +650,21 @@ uint8_t PixTestReadback::daqReadback(string dac, double vana, int8_t parReadback
     LOG(logDEBUG)<<"Wrong daqReadback function called!!!";
   }
   else if (!dac.compare("vd")){
-    vector<pair<string,double > > powerset;
-    //using some standard values, should be restored after
-    powerset.push_back(make_pair("ia", 1.19));
-    powerset.push_back(make_pair("id", 1.10));
-    powerset.push_back(make_pair("va", 1.9));
-    powerset.push_back(make_pair("vd", vana));
+    vector<pair<string,double > > powerset = fPixSetup->getConfigParameters()->getTbPowerSettings();
+    for(std::vector<std::pair<std::string,double> >::iterator pow_it=powerset.begin(); pow_it!=powerset.end(); pow_it++){
+      if( pow_it->first.compare("vd") == 0){
+	pow_it->second = vana;
+      }
+    }
     fApi->setTestboardPower(powerset);
   }
 else if (!dac.compare("va")){
-    //using some standard values, should be restored after
-    vector<pair<string,double > > powerset;
-    powerset.push_back(make_pair("ia", 1.19));
-    powerset.push_back(make_pair("id", 1.10));
-    powerset.push_back(make_pair("va", vana));
-    powerset.push_back(make_pair("vd", 2.6));
+    vector<pair<string,double > > powerset = fPixSetup->getConfigParameters()->getTbPowerSettings();
+    for(std::vector<std::pair<std::string,double> >::iterator pow_it=powerset.begin(); pow_it!=powerset.end(); pow_it++){
+      if( pow_it->first.compare("va") == 0){
+	pow_it->second = vana;
+      }
+    }
     fApi->setTestboardPower(powerset);
   }
 
@@ -729,7 +744,7 @@ uint8_t PixTestReadback::daqReadbackIa(){
   fApi->setClockStretch(0, 0, fParStretch); //Stretch after trigger, 0 delay
    
   //Set the histograms:
-  //  if(fHistList.size() == 0) setHistos();  //to book histo only for the first 'doTest' (or after Clear).
+  if(fHistList.size() == 0) setHistos();  //to book histo only for the first 'doTest' (or after Clear).
 
   //To print on shell the number of masked pixels per ROC:
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
