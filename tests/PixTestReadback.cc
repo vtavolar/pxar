@@ -383,8 +383,10 @@ void PixTestReadback::CalibrateIa(){
   TH1D* hrb(0);
   vector<TH1D*> hs_rbIa, hs_tbIa;
   double tbIa = 0.;
-  map<uint8_t, vector<double > > rbIa;
-  readback=daqReadback("vana", (uint8_t)80, fParReadback);  
+  map<uint8_t, vector<uint8_t > > rbIa;
+  while(readback.size()<1){
+    readback=daqReadback("vana", (uint8_t)80, fParReadback);  
+  }
   for(unsigned int iroc=0; iroc < readback.size(); iroc++){
     name = Form("rbIa_C%d", iroc);
     title=name;
@@ -409,15 +411,21 @@ void PixTestReadback::CalibrateIa(){
     fApi->setDAC("vana", 0);
     for(int ivana=0; ivana<52; ivana++){
       vana = (uint8_t)ivana*5;
-      readback=daqReadback("vana", vana, iroc, fParReadback);
+      do{readback=daqReadback("vana", vana, iroc, fParReadback);
+      }  while(readback.size()<1);
+      rbIa.insert(make_pair(vana, readback));   
       fApi->setDAC("vana", vana, iroc);
       tbIa = fApi->getTBia()*1E3;
-      rbIa.insert(make_pair(iroc, readback[iroc]));   
       hs_rbIa[iroc]->Fill(vana, readback[iroc]);//should this be corrected as well?
       hs_tbIa[iroc]->Fill(vana, tbIa-avIoff);//tbIa corrected for offset
     }
   }
 
+//  for(int ivana=0; ivana<52; ivana++){
+//    vana = (uint8_t)ivana*5;
+//    LOG(logDEBUG)<<"////????**** Vana =  "<<(int)vana<<", rb = "<<(int)rbIa[vana][0]<<"****????////";
+//    }
+  
   for(unsigned int iroc=0; iroc < readback.size(); iroc++){
     hs_rbIa[iroc]->GetXaxis()->SetTitle("Vana [DAC]");
     hs_rbIa[iroc]->GetYaxis()->SetTitle("Ia_rb [ADC]");
@@ -471,12 +479,12 @@ void PixTestReadback::CalibrateIa(){
     hs_rbIaCal.push_back(h_rbIaCal);
   }
 
-  for(unsigned int iroc=0; iroc < readback.size(); iroc++){
-    for(int ivana=0; ivana<52; ivana++){
+  for(int ivana=0; ivana<52; ivana++){
+    vana = (uint8_t)ivana*5;
+    for(unsigned int iroc=0; iroc < rbIa[vana].size(); iroc++){
       LOG(logDEBUG)<<"step ivana = "<<ivana;
-      vana = (uint8_t)ivana*5;
       //    h_rbIaCal->Fill(vana, ((tbpar1/rbpar1)*(rbIa[vana]-rbpar0)+tbpar0));
-      hs_rbIaCal[iroc]->Fill(vana, (rbIa[iroc][ivana]*rbIa[iroc][ivana]*fPar2TbIaCal[iroc]/fPar1RbIaCal[iroc]/fPar1RbIaCal[iroc] + rbIa[iroc][ivana]/fPar1RbIaCal[iroc]/fPar1RbIaCal[iroc]*(fPar1RbIaCal[iroc]*fPar1TbIaCal[iroc]-2*fPar0RbIaCal[iroc]*fPar2TbIaCal[iroc]) + (fPar0RbIaCal[iroc]*fPar0RbIaCal[iroc]*fPar2TbIaCal[iroc] - fPar0RbIaCal[iroc]*fPar1TbIaCal[iroc])/fPar1RbIaCal[iroc] + fPar0TbIaCal[iroc]));
+      hs_rbIaCal[iroc]->Fill(vana, (rbIa[vana][iroc]*rbIa[vana][iroc]*fPar2TbIaCal[iroc]/fPar1RbIaCal[iroc]/fPar1RbIaCal[iroc] + rbIa[vana][iroc]/fPar1RbIaCal[iroc]/fPar1RbIaCal[iroc]*(fPar1RbIaCal[iroc]*fPar1TbIaCal[iroc]-2*fPar0RbIaCal[iroc]*fPar2TbIaCal[iroc]) + (fPar0RbIaCal[iroc]*fPar0RbIaCal[iroc]*fPar2TbIaCal[iroc] - fPar0RbIaCal[iroc]*fPar1TbIaCal[iroc])/fPar1RbIaCal[iroc] + fPar0TbIaCal[iroc]));
     }
   }
 
@@ -497,7 +505,9 @@ std::vector<double> PixTestReadback::getCalibratedIa(){
 
   vector<uint8_t> readback;
 
-  readback=daqReadbackIa();
+  while(readback.size()<1){
+    readback=daqReadbackIa();
+  }
   vector<double> calIa(readback.size(), 0.);
   for(unsigned int iroc=0; iroc < readback.size(); iroc++){
     //  calIa = ((fPar1TbIaCal/fPar1RbIaCal)*((double)readback-fPar0RbIaCal)+fPar0TbIaCal);
@@ -512,8 +522,10 @@ double PixTestReadback::getCalibratedIa(unsigned int iroc){
   fParReadback=12;
 
   vector<uint8_t> readback;
-
-  readback=daqReadbackIa();
+  
+  while(readback.size()<1){
+    readback=daqReadbackIa();
+  }
   double calIa;
   calIa = (((double)readback[iroc])*((double)readback[iroc])*fPar2TbIaCal[iroc]/fPar1RbIaCal[iroc]/fPar1RbIaCal[iroc] + ((double)readback[iroc])/fPar1RbIaCal[iroc]/fPar1RbIaCal[iroc]*(fPar1RbIaCal[iroc]*fPar1TbIaCal[iroc]-2*fPar0RbIaCal[iroc]*fPar2TbIaCal[iroc]) + (fPar0RbIaCal[iroc]*fPar0RbIaCal[iroc]*fPar2TbIaCal[iroc] - fPar0RbIaCal[iroc]*fPar1TbIaCal[iroc])/fPar1RbIaCal[iroc] + fPar0TbIaCal[iroc]);
   LOG(logDEBUG)<<"Calibrated analog current is "<<calIa;
@@ -590,7 +602,9 @@ void PixTestReadback::CalibrateVd(){
   double Vd;
 
   //dry run to avoid spikes
-  readback=daqReadback("vd", 2.1, fParReadback);
+  while(readback.size()<1){
+    readback=daqReadback("vd", 2.1, fParReadback);
+  }
   //book histos
   for(unsigned int iroc=0; iroc < readback.size(); iroc++){
     name = Form("rbVd_C%d", iroc);
@@ -608,7 +622,9 @@ void PixTestReadback::CalibrateVd(){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VD :::::****/";
     Vd = 2.1 + iVd*0.05;
     LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
-    readback=daqReadback("vd", Vd, fParReadback);
+    do{
+      readback=daqReadback("vd", Vd, fParReadback);
+    }  while(readback.size()<1);
     for(unsigned int iroc=0; iroc < readback.size(); iroc++){
       LOG(logDEBUG)<<"Voltage "<<Vd<<", readback "<<(int)readback[iroc];
     //    rbVd.push_back(readback);
@@ -654,8 +670,9 @@ void PixTestReadback::readbackVbg(){
 
   vector<uint8_t> readback;
 
-
-  readback = daqReadback("vd", 2.5, fParReadback);
+  while(readback.size()<1){
+    readback = daqReadback("vd", 2.5, fParReadback);
+  }
   vector<double> avReadback(readback.size(), 0.);
 
   double Vd;
@@ -667,7 +684,9 @@ void PixTestReadback::readbackVbg(){
     LOG(logDEBUG)<<"/****:::::: READBACK VBG :::::****/";
     Vd = 2.5;
     LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
-    readback = daqReadback("vd", Vd, fParReadback);
+
+    do{ readback = daqReadback("vd", Vd, fParReadback);
+    }  while(readback.size()<1);
     for(unsigned int iroc=0; iroc < readback.size(); iroc++){
       if(0==readback[iroc]){
 	okRb=false;
@@ -731,7 +750,9 @@ void PixTestReadback::CalibrateVa(){
   double Va;
   
   //dry run to avoid spikes
-  readback=daqReadback("va", 1.5, fParReadback);
+  while(readback.size()<1){
+    readback=daqReadback("va", 1.5, fParReadback);
+  }
   //book histos
   for(unsigned int iroc=0; iroc < readback.size(); iroc++){
     name = Form("rbVa_C%d", iroc);
@@ -749,7 +770,8 @@ void PixTestReadback::CalibrateVa(){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VA FUNCTION :::::****/";
     Va = 1.5 + iVa*0.05;
     LOG(logDEBUG)<<"Analog voltage will be set to: "<<Va;
-    readback=daqReadback("va", Va, fParReadback);
+    do{readback=daqReadback("va", Va, fParReadback);
+    }  while(readback.size()<1);
     for(unsigned int iroc=0; iroc < readback.size(); iroc++){
       //      LOG(logDEBUG)<<"Voltage "<<Va<<", readback "<<readback;
       //      rbVa.push_back(readback);
