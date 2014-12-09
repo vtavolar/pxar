@@ -180,8 +180,8 @@ sub setDacs {
 	$dacs .= "  2 vana       78 \n";
 	$dacs .= "  3 vsh        30 \n";
 	$dacs .= "  4 vcomp      12 \n";
-	$dacs .= "  7 vwllpr     150\n";
-	$dacs .= "  9 vwllsh     150\n";
+	$dacs .= "  7 vwllpr     220\n";
+	$dacs .= "  9 vwllsh     220\n";
 	$dacs .= " 10 vhlddel    250\n";
 	$dacs .= " 11 vtrim      0  \n";
 	$dacs .= " 12 vthrcomp   85 \n";
@@ -189,7 +189,7 @@ sub setDacs {
 	$dacs .= " 17 phoffset   170\n";
 	$dacs .= " 19 vcomp_adc  50 \n";
 	$dacs .= " 20 phscale    130\n";
-	$dacs .= " 22 vicolor    10\n";
+	$dacs .= " 22 vicolor    100\n";
 	$dacs .= " 25 vcal       200\n";
 	$dacs .= " 26 caldel     96 \n";
 	$dacs .= "253 ctrlreg    0  \n";
@@ -370,8 +370,8 @@ probeD2 ctr
 
 ia 1.190
 id 1.100
-va 1.900
-vd 2.600
+va 1.600
+vd 2.400
 
 EOF
 

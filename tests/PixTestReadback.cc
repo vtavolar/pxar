@@ -349,21 +349,30 @@ void PixTestReadback::doTest() {
   CalibrateVd();
   CalibrateVa();
   readbackVbg();
-  vector<double> VBG =  getCalibratedVbg();
+  fCalwVd=true;
+  fCalwVa=false;
+  vector<double> VBG_vd =  getCalibratedVbg();
+  fCalwVd=false;
+  fCalwVa=true;
+  vector<double> VBG_va =  getCalibratedVbg();
   CalibrateIa();
   for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
     (*il)->Draw((getHistOption(*il)).c_str()); 
   }
   
-//  ofstream myfile;
-//  myfile.open ((fPixSetup->getConfigParameters()->getDirectory()+"/ReadbackCal.dat").c_str(), ios::app);
-//  myfile << "##Voltages" << endl;
-//  myfile <<"#par0Vd    par1Vd    par0Va    par1Va    directory    rbVbg    Vbg    calVd    calVa    "<<endl;
-//  myfile<<fPar0VdCal<<"    "<<fPar1VdCal<<"    "<<fPar0VaCal<<"    "<<fPar1VaCal<<"    "<<fPixSetup->getConfigParameters()->getDirectory()<<"    "<<fRbVbg<<"    "<<VBG<<"	"<<fCalwVd<<"    "<<fCalwVa<<endl;
-//  myfile << "##Currents " << endl;
-//  myfile << "par0IaRb    par1IaRb    par0IaTb    par1IaTb    par2IaTb" << endl;
-//  myfile << fPar0RbIaCal << "    " << fPar1RbIaCal << "    " << fPar0TbIaCal << "    " << fPar1TbIaCal << "    " << fPar2TbIaCal << endl;
-//  myfile.close();
+  ofstream myfile;
+  myfile.open ((fPixSetup->getConfigParameters()->getDirectory()+"/ReadbackCal.dat").c_str(), ios::app);
+  //  myfile << "##Voltages" << endl;
+  myfile <<"##" <<fPixSetup->getConfigParameters()->getDirectory()<<endl;
+  myfile <<"#ROC par0Vd par1Vd par0Va par1Va rbVbg VbgcalVd VbgcalVa par0IaRb par1IaRb par0IaTb par1IaTb par2IaTb" << endl;
+  for(uint8_t iroc = 0; iroc<VBG_vd.size(); iroc++){
+    myfile<<(int)iroc<<" "<<fPar0VdCal[iroc]<<" "<<fPar1VdCal[iroc]<<" "<<fPar0VaCal[iroc]<<" "<<fPar1VaCal[iroc]<<" "<<" "<<fRbVbg[iroc]<<" "<<VBG_vd[iroc]<<"	"<<VBG_va[iroc]<<" " << fPar0RbIaCal[iroc] << " " << fPar1RbIaCal[iroc] << " " << fPar0TbIaCal[iroc] << " " << fPar1TbIaCal[iroc] << " " << fPar2TbIaCal[iroc] <<endl;
+  }
+  //myfile << "##Currents " << endl;
+//  for(uint8_t iroc = 0; iroc<VBG_vd.size(); iroc++){
+//    myfile << (int)iroc << 
+//  }
+  myfile.close();
   
  LOG(logINFO) << "PixTestReadback::doTest() done";
 
