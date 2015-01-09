@@ -21,7 +21,18 @@ PixTestReadback::PixTestReadback(PixSetup *a, std::string name) : PixTest(a, nam
   init(); 
   LOG(logDEBUG) << "PixTestReadback ctor(PixSetup &a, string, TGTab *)";
   fTree = 0; 
-  
+
+  vector<vector<pair<string, double> > > prova;
+  vector<pair<string, double> > prova1;
+  prova =  fPixSetup->getConfigParameters()->getReadbackCal();
+  fRbCal =  fPixSetup->getConfigParameters()->getReadbackCal();
+  prova1 = prova[0];
+  LOG(logDEBUG)<<"***???!!! calibration constants for readback !!!???***";
+  LOG(logDEBUG)<<"size is "<<prova1.size();
+  for(int iv=0; iv<prova1.size(); iv++){
+    LOG(logDEBUG)<<prova1[iv].first<<" "<<prova1[iv].second;
+  }
+
   //initialize all calibration factors to 1
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
   for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
@@ -470,6 +481,27 @@ void PixTestReadback::CalibrateIa(){
   fPar2TbIaCal[iroc]=v_ftb[iroc]->GetParameter(2);
   }
 
+  for(unsigned int iroc=0; iroc < readback.size(); iroc++){
+    for(std::vector<std::pair<std::string, double> >::iterator ical = fRbCal[iroc].begin(); ical != fRbCal[iroc].end(); ical++){
+      if(ical->first.compare("Par0RbIa")){
+	ical->second = fPar0RbIaCal[iroc];
+      }
+      else if(ical->first.compare("Par1RbIa")){
+	ical->second = fPar1RbIaCal[iroc];
+      }
+      else if(ical->first.compare("Par0TbIa")){
+	ical->second = fPar0TbIaCal[iroc];
+      }
+      else if(ical->first.compare("Par1TbIa")){
+	ical->second = fPar1TbIaCal[iroc];
+      }
+      else if(ical->first.compare("Par2TbIa")){
+	ical->second = fPar2TbIaCal[iroc];
+      }
+    }
+  }
+  
+
   TH1D* h_rbIaCal (0);
   vector<TH1D*> hs_rbIaCal;
   for(unsigned int iroc=0; iroc < readback.size(); iroc++){
@@ -496,6 +528,10 @@ void PixTestReadback::CalibrateIa(){
     fHistList.push_back(hs_rbIaCal[iroc]);
     fHistList.push_back(hs_tbIa[iroc]);
   }
+  for(unsigned int iroc=0; iroc < readback.size(); iroc++){
+    fPixSetup->getConfigParameters()->writeReadbackFile(iroc, fRbCal[iroc]);    
+  }
+  
   restoreDacs();
 }
 
@@ -854,7 +890,11 @@ else if (!dac.compare("va")){
   std::vector<std::vector<uint16_t> > rb;
   rb = fApi->daqGetReadback();
   std::vector<uint8_t> rb_val;
-
+  for(uint8_t i=0; i<rb.size(); i++){
+      for(uint8_t j=0; i<rb[i].size(); j++){
+	LOG(logDEBUG)<<";;;*** DEBUG readback ***;;; "<<i<<" "<<j<<" :"<<rb[i][j];
+      }
+  }
   for(uint8_t i=0; i<rb.size(); i++){
     //    for(uint8_t j=0; j<rb[i].size(); j++){
     // LOG(logDEBUG)<<"Readback values for vana = "<<(int)vana<<" : "<<(int)(rb[i][j]&0xff);
