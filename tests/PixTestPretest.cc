@@ -25,6 +25,11 @@ PixTest(a, name),
   fParFracCalDel(0.5) {
   PixTest::init();
   init(); 
+//  fApi->_dut->info();
+//  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
+//  LOG(logDEBUG)<<"Pretest: size of enabled rocs vector is "<<rocIds.size()<<". getNenabledRocs is "<<fApi->_dut->getNEnabledRocs()<<".";
+  int nRocs = fApi->_dut->getNRocs();
+  cout << "----------> " << nRocs << endl;
 }
 
 // ----------------------------------------------------------------------

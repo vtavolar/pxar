@@ -23,12 +23,13 @@ PixTestReadback::PixTestReadback(PixSetup *a, std::string name) : PixTest(a, nam
   fTree = 0; 
 
   vector<vector<pair<string, double> > > iniCal;
-  vector<pair<string, double> > prova1;
   fRbCal =  fPixSetup->getConfigParameters()->getReadbackCal();
 
   //initialize all calibration factors to 1
+  fApi->_dut->info();
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
-  for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
+  LOG(logDEBUG)<<"size of enabled rocs vector is "<<rocIds.size()<<". getNenabledRocs is "<<fApi->_dut->getNEnabledRocs()<<". Private memebers initialised with this size";
+  for(unsigned int iroc=0; iroc < fApi->_dut->getNRocs(); iroc++){
     fPar0VdCal.push_back(1.);  
     fPar1VdCal.push_back(1.);  
     fPar0VaCal.push_back(1.);  
@@ -41,7 +42,8 @@ PixTestReadback::PixTestReadback(PixSetup *a, std::string name) : PixTest(a, nam
     fRbVbg.push_back(0.);
   }
 
-  for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
+  //  for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
+  for(unsigned int iroc=0; iroc < fApi->_dut->getNRocs(); iroc++){
     for(std::vector<std::pair<std::string, double> >::iterator ical = fRbCal[iroc].begin(); ical != fRbCal[iroc].end(); ical++){
       if(!(ical->first.compare("par0vd"))){
 	fPar0VdCal[iroc] = ical->second;
@@ -75,13 +77,16 @@ PixTestReadback::PixTestReadback(PixSetup *a, std::string name) : PixTest(a, nam
 
   fPhCal.setPHParameters(fPixSetup->getConfigParameters()->getGainPedestalParameters());
   fPhCalOK = fPhCal.initialized();
+  cacheDacs();
+  fApi->_dut->info();
+  LOG(logDEBUG)<<"size of enabled rocs vector is "<<rocIds.size()<<". getNenabledRocs is "<<fApi->_dut->getNEnabledRocs()<<". Private memebers initialised with this size";
 }
 
 
 //----------------------------------------------------------
 PixTestReadback::PixTestReadback() : PixTest() {
-  LOG(logDEBUG) << "PixTestReadback ctor()";
-  fTree = 0; 
+  //  LOG(logDEBUG) << "PixTestReadback ctor()";
+  // fTree = 0; 
 }
 
 //----------------------------------------------------------
@@ -637,7 +642,9 @@ void PixTestReadback::CalibrateVana(){
 
 void PixTestReadback::CalibrateVd(){
   cacheDacs();
-
+  fApi->_dut->info();
+  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
+  LOG(logDEBUG)<<"size of enabled rocs vector is "<<rocIds.size()<<". getNenabledRocs is "<<fApi->_dut->getNEnabledRocs()<<". Private memebers initialised with this size";
   //readback DAC set to 8 (i.e. Vd)
   fParReadback=8;
 
