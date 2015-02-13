@@ -856,27 +856,39 @@ void PixTestPhOptimization::MinPhVsDacDac(std::vector< std::pair<uint8_t, std::p
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
   fApi->_dut->testAllPixels(false);
   fApi->_dut->maskAllPixels(true);
+  unsigned int NRocs = rocIds.size();
+  std::vector< std::pair<uint8_t, std::pair<uint8_t, std::vector<pxar::pixel> > > > dacdac_min_part;
+
   for(std::map<int, pxar::pixel>::iterator minp_it = minpixels.begin(); minp_it != minpixels.end(); minp_it++){
-    fApi->_dut->testPixel(minp_it->second.column(),minp_it->second.row(),true, getIdxFromId(minp_it->second.roc()));
-    fApi->_dut->maskPixel(minp_it->second.column(),minp_it->second.row(),false, getIdxFromId(minp_it->second.roc()));
-  }
-  fApi->setDAC("ctrlreg",0);
-  for(unsigned int roc_it = 0; roc_it < rocIds.size(); roc_it++){
-    fApi->setDAC("ctrlreg",0);
-    fApi->setDAC("vcal",minVcal[roc_it]+10, rocIds[roc_it] );
-  }
-  //scanning through offset and scale for min pixel (or same randpixel)
-  int cnt = 0; 
-  int done = false;
-  while (!done) {
-    try {
-      dacdac_min = fApi->getPulseheightVsDACDAC("phoffset",0,255,"phscale",0,255,0,10);
-      done = true;
-    } catch(pxarException &e) {
-      LOG(logCRITICAL) << "pXar execption: "<< e.what(); 
-      ++cnt;
+    for(unsigned int roc_kt = 0; roc_kt < NRocs; roc_kt++){
+      fApi->_dut->setROCEnable(roc_kt, false);
     }
-    done = (cnt>5) || done;
+    fApi->_dut->setROCEnable(minp_it->first, true);
+    fApi->_dut->testPixel(minp_it->second.column(),minp_it->second.row(),true);
+    fApi->_dut->maskPixel(minp_it->second.column(),minp_it->second.row(),false);
+  
+    fApi->setDAC("ctrlreg",0);
+    fApi->setDAC("vcal",minVcal[minp_it->first]+10, rocIds[minp_it->first]);
+    
+  //scanning through offset and scale for min pixel (or same randpixel)
+    int cnt = 0; 
+    int done = false;
+    while (!done) {
+      try {
+	dacdac_min_part = fApi->getPulseheightVsDACDAC("phoffset",0,255,"phscale",0,255,0,10);
+	done = true;
+      } catch(pxarException &e) {
+	LOG(logCRITICAL) << "pXar execption: "<< e.what(); 
+	++cnt;
+    }
+      done = (cnt>5) || done;
+    }
+    int dacdacsize_old = dacdac_min.size();
+    dacdac_min.resize(dacdac_min.size() + dacdac_min_part.size());
+    for(int idacdacpart = 0; idacdacpart< dacdac_min_part.size(); idacdacpart++){
+      dacdac_min[dacdacsize_old + idacdacpart] = dacdac_min_part[idacdacpart];
+    }
+    dacdac_min_part.clear();
   }
 
   //  std::map<uint8_t, std::map<std::pair<uint8_t, uint8_t>, pxar::pixel > >  dacdacmin_map;
