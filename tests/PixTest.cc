@@ -227,9 +227,12 @@ vector<TH1*> PixTest::scurveMaps(string dac, string name, int ntrig, int dacmin,
   if (1 == ihit) {
     scurveAna(dac, name, maps, resultMaps, result); 
   } 
+  else if (2 == ihit){
+    phCurveAna(dac, name, maps, resultMaps, result); 
+  }
 
   LOG(logDEBUG) << "PixTest::scurveMaps end: getCurrentRSS() = " << rss.getCurrentRSS();
-
+  
   return resultMaps; 
 }
 
@@ -1491,6 +1494,109 @@ void PixTest::scurveAna(string dac, string name, vector<shist256*> maps, vector<
   PixTest::update(); 
   
 }
+
+void PixTest::phCurveAna(string dac, string name, vector<shist256*> maps, vector<TH1*> &resultMaps, int result) {
+  fDirectory->cd(); 
+  string fname("SCurveData");
+  ofstream OutputFile;
+  string line; 
+  string empty("32  93   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0 ");
+  bool dumpFile(false); 
+  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
+  int roc(0), ic(0), ir(0); 
+  TH1D *h1 = new TH1D("h1", "h1", 256, 0., 256.); h1->Sumw2(); 
+
+  for (unsigned int iroc = 0; iroc < rocIds.size(); ++iroc) {
+    LOG(logDEBUG) << "analyzing ROC " << static_cast<int>(rocIds[iroc]);
+
+//    string lname(name); 
+//    std::transform(lname.begin(), lname.end(), lname.begin(), ::tolower);
+//    if (!name.compare("scurveVcal") || !lname.compare("scurvevcal")) {
+//      dumpFile = true; 
+//      OutputFile.open(Form("%s/%s_C%d.dat", fPixSetup->getConfigParameters()->getDirectory().c_str(), fname.c_str(), iroc));
+//      OutputFile << "Mode 1 " << "Ntrig " << fNtrig << endl;
+//    }
+//
+
+    for (unsigned int i = iroc*4160; i < (iroc+1)*4160; ++i) {
+      PixUtil::idx2rcr(i, roc, ic, ir);
+      if (maps[i]->getSumOfWeights() < 1) {
+	if (dumpFile) OutputFile << empty << endl;
+	continue;
+      }
+      
+      // -- calculated "proper" errors
+      h1->Reset();
+      for (int ib = 1; ib <= 256; ++ib) {
+	h1->SetBinContent(ib, maps[i]->get(ib));
+	h1->SetBinError(ib, fNtrig*PixUtil::dBinomial(static_cast<int>(maps[i]->get(ib)), fNtrig)); 
+      }
+
+      //      bool ok = threshold(h1); 
+      TH1D *h1c = (TH1D*)h1->Clone(Form("phcurve_%s_c%d_r%d_C%d", dac.c_str(), ic, ir, rocIds[iroc])); 
+      // if (!ok) {
+	h1c->SetTitle(Form("%s phcurve (c%d_r%d_C%d)", dac.c_str(), ic, ir, rocIds[iroc]));
+	// } else {
+	//	h1c->SetTitle(Form("%s scurve (c%d_r%d_C%d)", dac.c_str(), ic, ir, rocIds[iroc]));
+	//      }
+      fHistList.push_back(h1c); 
+     
+      // -- write file
+//      if (dumpFile) {
+//	int NSAMPLES(32); 
+//	int ibin = h1->FindBin(fThreshold); 
+//	int bmin = ibin - 15;
+//	line = Form("%2d %3d", NSAMPLES, bmin); 
+//	for (int ix = bmin; ix < bmin + NSAMPLES; ++ix) {
+//	  line += string(Form(" %3d", static_cast<int>(h1->GetBinContent(ix+1)))); 
+//	}
+//	OutputFile << line << endl;
+//      }
+//    }
+//    if (dumpFile) OutputFile.close();
+//
+//    if (result & 0x1) {
+//      resultMaps.push_back(h2); 
+//      fHistList.push_back(h2); 
+//    }
+//    if (result & 0x2) {
+//      resultMaps.push_back(h3); 
+//      fHistList.push_back(h3); 
+//    } 
+//    if (result & 0x4) {
+//      resultMaps.push_back(h4); 
+//      fHistList.push_back(h4); 
+//    }
+//
+//    if (result & 0x8) {
+//      if (result & 0x1) {
+//	TH1* d1 = distribution((TH2D*)h2, 256, 0., 256.); 
+//	resultMaps.push_back(d1); 
+//	fHistList.push_back(d1); 
+//      }
+//      if (result & 0x2) {
+//	TH1* d2 = distribution((TH2D*)h3, 100, 0., 6.); 
+//	resultMaps.push_back(d2); 
+//	fHistList.push_back(d2); 
+//      }
+//      if (result & 0x4) {
+//	TH1* d3 = distribution((TH2D*)h4, 256, 0., 256.); 
+//	resultMaps.push_back(d3); 
+//	fHistList.push_back(d3); 
+//      }
+    }
+//
+  }
+//
+//  fDisplayedHist = find(fHistList.begin(), fHistList.end(), h2);
+
+  delete h1;
+
+  //  if (h2) h2->Draw("colz");
+  PixTest::update(); 
+  
+}
+
 
 // ----------------------------------------------------------------------
 void PixTest::getPhError(std::string /*dac*/, int /*dacmin*/, int /*dacmax*/, int /*FLAGS*/, int /*ntrig*/) {
