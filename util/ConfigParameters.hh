@@ -43,6 +43,7 @@ public:
   void readTbParameters();
   void readRocDacs();
   void readTbmDacs();
+  void readReadbackCal();
 
   
   void writeAllFiles();
@@ -55,6 +56,8 @@ public:
 			     std::vector<std::pair<std::string, uint8_t> > );
   bool writeTbParameterFile();
   bool writeTestParameterFile(std::string test="all");
+  bool writeReadbackFile(int iroc, std::vector<std::pair<std::string, double> > v);
+  bool writeMaskFile(std::vector<std::vector<std::pair<int, int> > > v, std::string name = ""); 
 
   static ConfigParameters* Singleton();
 
@@ -82,8 +85,10 @@ public:
   std::vector<std::pair<std::string,uint8_t> >  getTbPgSettings();
   std::vector<std::vector<std::pair<std::string, uint8_t> > > getTbmDacs();
   std::vector<std::vector<std::pair<std::string, uint8_t> > > getRocDacs();
+  std::vector<std::vector<std::pair<std::string, double> > > getReadbackCal();
   std::vector<std::string> getDacs();
   std::vector<std::pair<std::string, uint8_t> > readDacFile(std::string fname);
+  std::vector<std::pair<std::string, double> > readReadbackFile(std::string fname);
   void readTrimFile(std::string fname, std::vector<pxar::pixelConfig>&);
   std::vector<std::vector<std::pair<int, int> > > readMaskFile(std::string fname);
   std::vector<std::vector<pxar::pixelConfig> > getRocPixelConfig();
@@ -91,7 +96,7 @@ public:
   bool customI2cAddresses() {return fI2cAddresses.size() > 0;} 
   std::vector<uint8_t> getI2cAddresses() {return fI2cAddresses;}
 
-  bool setTbParameter(std::string, uint8_t);
+  bool setTbParameter(std::string, uint8_t, bool appendIfNotFound = false);
   bool setTbPowerSettings(std::string, double);
   bool setTbmDac(std::string var, uint8_t val, int itbm = -1);
   bool setRocDac(std::string var, uint8_t val, int iroc = -1);
@@ -104,7 +109,7 @@ public:
   void setDACParameterFileName(std::string filename) {fDACParametersFileName = filename;}
   void setTbmParameterFileName(std::string filename) {fTbmParametersFileName = filename;}
   void setTrimParameterFileName(std::string filename) {fTrimParametersFileName = filename;}
-  void setTrimVcalSuffix(std::string name) {fTrimVcalSuffix = name;}
+  void setTrimVcalSuffix(std::string name, bool nocheck = false);
   void setTestParameterFileName(std::string filename) {fTestParametersFileName = filename;}
   void setRootFileName(std::string filename) {fRootFileName = filename;}
   void setLogFileName(std::string filename) {fLogFileName = filename;}
@@ -141,11 +146,12 @@ public:
 
 private:
 
-  bool fReadTbParameters, fReadTbmParameters, fReadDacParameters, fReadRocPixelConfig;
+  bool fReadTbParameters, fReadTbmParameters, fReadDacParameters, fReadRocPixelConfig, fReadReadbackCal;
   std::vector<std::pair<std::string, uint8_t> > fTbParameters;
   std::vector<std::pair<std::string, double> > fTbPowerSettings;
   std::vector<std::pair<uint16_t, uint8_t> > fTbPgSettings;
-  std::vector<std::vector<std::pair<std::string, uint8_t> > > fTbmParameters, fDacParameters; 
+  std::vector<std::vector<std::pair<std::string, uint8_t> > > fTbmParameters, fDacParameters;
+  std::vector<std::vector<std::pair<std::string, double> > > fReadbackCal; 
   std::vector<std::vector<pxar::pixelConfig> > fRocPixelConfigs; 
   std::vector<int> fSelectedRocs, fSelectedTbms;
 
@@ -174,6 +180,7 @@ private:
   std::string fMaskFileName;
   std::string fDebugFileName;
   std::string fGainPedestalFileName, fGainPedestalParameterFileName; 
+  std::string fReadbackCalFileName;
 
   static ConfigParameters* fInstance;
 
