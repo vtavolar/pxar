@@ -184,11 +184,11 @@ void PixTestGainPedestal::measure() {
   fHpoints.push_back(30); 
   fHpoints.push_back(50); 
   fHpoints.push_back(70); 
-  fHpoints.push_back(90); 
+  //  fHpoints.push_back(90); 
   if (1 == fParExtended) {
     fHpoints.push_back(120); //new
   }
-  fHpoints.push_back(200); 
+  //  fHpoints.push_back(200); 
 
 
   cacheDacs();
@@ -331,18 +331,20 @@ void PixTestGainPedestal::fit() {
 
   TF1 *f(0); 
 
+  //  vector<vector<gainPedestalParameters> > v;
   vector<vector<gainPedestalParameters> > v;
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
   gainPedestalParameters a; 
-  a.p0 = a.p1 = a.p2 = a.p3 = 0.;
+  //  a.p0 = a.p1 = a.p2 = a.p3 = 0.;
+  a.p0 = a.p1 = a.p2  = 0.;
   TH1D* h(0);
-  vector<TH1D*> p1list; 
+  vector<TH1D*> p2list; 
   double fracErr(0.05); 
   for (unsigned int i = 0; i < rocIds.size(); ++i) {
     LOG(logDEBUG) << "Create hist " << Form("gainPedestalP1_C%d", rocIds[i]); 
     h = bookTH1D(Form("gainPedestalP1_C%d", i), Form("gainPedestalP1_C%d", rocIds[i]), 100, 0., 2.); 
     setTitles(h, "p1", "Entries / Bin"); 
-    p1list.push_back(h); 
+    p2list.push_back(h); 
     vector<gainPedestalParameters> vroc;
     for (unsigned j = 0; j < 4160; ++j) {
       vroc.push_back(a); 
@@ -356,14 +358,17 @@ void PixTestGainPedestal::fit() {
     h1->Reset();
     for (int ib = 0; ib < static_cast<int>(fLpoints.size()); ++ib) {
       h1->SetBinContent(fLpoints[ib]+1, fHists[i]->get(ib+1));
-      h1->SetBinError(fLpoints[ib]+1, fracErr*fHists[i]->get(ib+1)); 
+      h1->SetBinError(fLpoints[ib]+1, 1.); 
     }
     for (int ib = 0; ib < static_cast<int>(fHpoints.size()); ++ib) {
       h1->SetBinContent(7*fHpoints[ib]+1, fHists[i]->get(100+ib+1));
-      h1->SetBinError(7*fHpoints[ib]+1, fracErr*fHists[i]->get(100+ib+1)); 
+      h1->SetBinError(7*fHpoints[ib]+1, 1.); 
     }
     
-    f = fPIF->gpTanH(h1); 
+    //f = fPIF->gpTanH(h1); 
+    f = fPIF->gpPol2(h1);
+
+
     if (h1->Integral() < 1) continue;
     PixUtil::idx2rcr(i, iroc, ic, ir);
     if (fParShowFits) {
@@ -390,29 +395,29 @@ void PixTestGainPedestal::fit() {
     v[iroc][idx].p0 = f->GetParameter(0); 
     v[iroc][idx].p1 = f->GetParameter(1); 
     v[iroc][idx].p2 = f->GetParameter(2); 
-    v[iroc][idx].p3 = f->GetParameter(3); 
+    //    v[iroc][idx].p3 = f->GetParameter(3); 
 
-    p1list[getIdxFromId(iroc)]->Fill(f->GetParameter(1)); 
+    p2list[getIdxFromId(iroc)]->Fill(f->GetParameter(2)); 
   }
 
   fPixSetup->getConfigParameters()->setGainPedestalParameters(v);
 
-  copy(p1list.begin(), p1list.end(), back_inserter(fHistList));
+  copy(p2list.begin(), p2list.end(), back_inserter(fHistList));
   h = (TH1D*)(fHistList.back());
   h->Draw();
 
-  string p1MeanString(""), p1RmsString(""); 
-  for (unsigned int i = 0; i < p1list.size(); ++i) {
-    p1MeanString += Form(" %5.3f", p1list[i]->GetMean()); 
-    p1RmsString += Form(" %5.3f", p1list[i]->GetRMS()); 
+  string p2MeanString(""), p2RmsString(""); 
+  for (unsigned int i = 0; i < p2list.size(); ++i) {
+    p2MeanString += Form(" %5.3f", p2list[i]->GetMean()); 
+    p2RmsString += Form(" %5.3f", p2list[i]->GetRMS()); 
   }
 
   fDisplayedHist = find(fHistList.begin(), fHistList.end(), h);
   PixTest::update(); 
 
   LOG(logINFO) << "PixTestGainPedestal::fit() done"; 
-  LOG(logINFO) << "p1 mean: " << p1MeanString; 
-  LOG(logINFO) << "p1 RMS:  " << p1RmsString; 
+  LOG(logINFO) << "p2 mean: " << p2MeanString; 
+  LOG(logINFO) << "p2 RMS:  " << p2RmsString; 
 }
 
 

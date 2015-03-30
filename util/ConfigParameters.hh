@@ -27,7 +27,7 @@ typedef char int8_t;
 #include "api.h"
 
 struct gainPedestalParameters {
-  double p0, p1, p2, p3; 
+  double p0, p1, p2; 
 };
 
 

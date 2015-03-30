@@ -959,14 +959,14 @@ void ConfigParameters::readGainPedestalParameters() {
     is.close();
 
     // -- parse lines
-    double p0, p1, p2, p3;  
+    double p0, p1, p2;  
     int icol, irow; 
     string pix; 
 
     for (unsigned int i = 3; i < lines.size(); ++i) {
       istringstream istring(lines[i]);
-      istring >> p0 >> p1 >> p2 >> p3 >> pix >> icol >> irow; 
-      gainPedestalParameters a = {p0, p1, p2, p3};
+      istring >> p0 >> p1 >> p2 >> pix >> icol >> irow; 
+      gainPedestalParameters a = {p0, p1, p2};
       rocPar.push_back(a); 
     }
     fGainPedestalParameters.push_back(rocPar); 
@@ -991,15 +991,14 @@ void ConfigParameters::writeGainPedestalParameters() {
     }
     
     OutputFile << "Parameters of the vcal vs. pulse height fits" << endl;
-    OutputFile << "par[3] + par[2] * TMath::TanH(par[0]*x[0] - par[1])" << endl << endl;
+    OutputFile << "par[0] + par[1]*x + par[2]*x*x " << endl << endl;
     
     vector<gainPedestalParameters> pars = fGainPedestalParameters[iroc]; 
     for (unsigned ipix = 0; ipix < pars.size(); ++ipix) {	
       OutputFile << scientific 
 		 << pars[ipix].p0 << " " 
 		 << pars[ipix].p1 << " " 
-		 << pars[ipix].p2 << " " 
-		 << pars[ipix].p3;
+		 << pars[ipix].p2;
       OutputFile.unsetf(ios::fixed | ios::scientific);
       OutputFile << "     Pix "
 		 << setw(2) << ipix/80 << " " << setw(2) << ipix%80
