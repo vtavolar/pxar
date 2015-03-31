@@ -341,9 +341,9 @@ void PixTestGainPedestal::fit() {
   vector<TH1D*> p2list; 
   double fracErr(0.05); 
   for (unsigned int i = 0; i < rocIds.size(); ++i) {
-    LOG(logDEBUG) << "Create hist " << Form("gainPedestalP1_C%d", rocIds[i]); 
-    h = bookTH1D(Form("gainPedestalP1_C%d", i), Form("gainPedestalP1_C%d", rocIds[i]), 100, 0., 2.); 
-    setTitles(h, "p1", "Entries / Bin"); 
+    LOG(logDEBUG) << "Create hist " << Form("gainPedestalP2_C%d", rocIds[i]); 
+    h = bookTH1D(Form("gainPedestalP2_C%d", i), Form("gainPedestalP2_C%d", rocIds[i]), 100, 0., 0.001); 
+    setTitles(h, "p2", "Entries / Bin"); 
     p2list.push_back(h); 
     vector<gainPedestalParameters> vroc;
     for (unsigned j = 0; j < 4160; ++j) {
