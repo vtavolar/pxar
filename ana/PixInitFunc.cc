@@ -262,14 +262,14 @@ TF1* PixInitFunc::gpPol2(TH1 *h) {
     f->ReleaseParameter(2);     
   }
   
-  double p0 = 1.4e-3;
+  double p0 = 30;
   double p1 = 0.25; // slope
-  double p2 = 1.e-4;
+  double p2 = 1.e-2;
 
   f->SetParameters(p0, p1, p2); 
-  f->SetParLimits(0, 1.e-3, 2.e-3); // keep!
+  f->SetParLimits(0, 1.e-2, 100); // keep!
   f->SetParLimits(1, 0, 0.5); // keep!
-  f->SetParLimits(2, 5.e-5, 2.e-4); // keep!
+  f->SetParLimits(2, 0.00001, 0.2); // keep!
 
   return f; 
 }
