@@ -20,7 +20,7 @@ ClassImp(PixTestXray)
 // ----------------------------------------------------------------------
 PixTestXray::PixTestXray(PixSetup *a, std::string name) : PixTest(a, name), 
   fParSource("nada"), fParMaskFileName("default"), fParTriggerFrequency(0), fParRunSeconds(0), fParStepSeconds(0), 
-  fParVthrCompMin(0), fParVthrCompMax(0),  fParFillTree(false), fParDelayTBM(false), fParSaveMaskedPixels(0), fSourceChanged(false) {
+  fParVthrCompMin(0), fParVthrCompMax(0),  fParFillTree(true), fParDelayTBM(false), fParSaveMaskedPixels(0), fSourceChanged(false) {
   PixTest::init();
   init(); 
   LOG(logDEBUG) << "PixTestXray ctor(PixSetup &a, string, TGTab *)";
@@ -709,7 +709,8 @@ void PixTestXray::readData() {
       fPHmap[idx]->Fill(it->pixels[ipix].column(), it->pixels[ipix].row(), it->pixels[ipix].value());
       fPH[idx]->Fill(it->pixels[ipix].value());
 	
-      if (fParFillTree && ipix < 20000) {
+      //      if (fParFillTree && ipix < 20000) {
+      if (fParFillTree) {
 	++fTreeEvent.npix;
 	fTreeEvent.proc[ipix] = it->pixels[ipix].roc(); 
 	fTreeEvent.pcol[ipix] = it->pixels[ipix].column(); 

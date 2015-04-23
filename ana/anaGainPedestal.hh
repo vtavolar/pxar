@@ -24,7 +24,6 @@ class DLLEXPORT anaGainPedestal {
   void readRootFile(std::string filename);
   void fitTanH(int roc = -1, int col = -1, int row = -1, bool draw = false);
   void fitErr(int roc = -1, int col = -1, int row = -1, bool draw = false);
-  void test(double y0 = 42., double y1 = 50.); 
 
   // -- utilities
   std::vector<std::string> glob(std::string directory, std::string basename = "phCalibration_");
@@ -33,7 +32,7 @@ private:
   TCanvas                     *c0;
   int                          fNrocs; 
   std::string                  fDirectory;
-  std::vector<std::pair<std::string, TH1D*> > fHists; 
+  std::map<std::string, TH1D*> fHists; 
 
   ClassDef(anaGainPedestal, 1); // testing anaGainPedestal
 

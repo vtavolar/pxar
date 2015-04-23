@@ -24,6 +24,10 @@ namespace {
     return par[3]*(TMath::Erf((x[0]-par[0])/par[1])+par[2]); 
   } 
 
+  double PIF_pol2(double *x, double *par) {
+    return par[0]+par[1]*x[0]+par[2]*x[0]*x[0];
+  } 
+
   double PIF_weibullCdf(double *x, double *par) {
     if (par[1] < 0) return 0.;
     if (par[2] < 0) return 0.;
@@ -218,9 +222,9 @@ TF1* PixInitFunc::gpErr(TH1 *h) {
   fDoNotFit = false;
 
   // -- setup function
-  TF1* f = (TF1*)gROOT->FindObject("PIF_gpErr");
+  TF1* f = (TF1*)gROOT->FindObject("PIF_err");
   if (0 == f) {
-    f = new TF1("PIF_gpErr", PIF_err, h->GetBinLowEdge(1), h->GetBinLowEdge(h->GetNbinsX()+1), 4);
+    f = new TF1("PIF_err", PIF_err, h->GetBinLowEdge(1), h->GetBinLowEdge(h->GetNbinsX()+1), 4);
     f->SetParNames("step", "slope", "floor", "plateau");                       
     f->SetNpx(1000);
   } else {
@@ -230,14 +234,42 @@ TF1* PixInitFunc::gpErr(TH1 *h) {
     f->ReleaseParameter(3); 
   }
   
-  double hmax = h->GetBinContent(h->GetMaximumBin()); 
-  double p0 = h->GetBinLowEdge(h->FindFirstBinAbove(0.5*hmax)); // half-point
+  double p0 = h->GetBinLowEdge(h->FindFirstBinAbove(0.5*h->GetMaximum())); // half-point
   double p1 = 250.; // slope
   double p2 = 1.;
-  double p3 = 0.5*hmax; // half plateau
+  double p3 = 0.5*h->GetMaximum(); // half plateau
 
   f->SetParameters(p0, p1, p2, p3); 
   f->SetParLimits(1, 50, 1000.); // keep!
+
+  return f; 
+}
+
+// ----------------------------------------------------------------------
+TF1* PixInitFunc::gpPol2(TH1 *h) {
+
+  fDoNotFit = false;
+
+  // -- setup function
+  TF1* f = (TF1*)gROOT->FindObject("PIF_pol2");
+  if (0 == f) {
+    f = new TF1("PIF_pol2", PIF_pol2, h->GetBinLowEdge(1), h->GetBinLowEdge(h->GetNbinsX()+1), 3);
+    f->SetParNames("offset", "slope", "curvature");                       
+    f->SetNpx(1000);
+  } else {
+    f->ReleaseParameter(0);     
+    f->ReleaseParameter(1);     
+    f->ReleaseParameter(2);     
+  }
+  
+  double p0 = 30;
+  double p1 = 0.25; // slope
+  double p2 = 1.e-2;
+
+  f->SetParameters(p0, p1, p2); 
+  f->SetParLimits(0, 1.e-2, 100); // keep!
+  f->SetParLimits(1, 0, 0.5); // keep!
+  f->SetParLimits(2, 0.00001, 0.2); // keep!
 
   return f; 
 }

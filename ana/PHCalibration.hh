@@ -10,29 +10,19 @@
 class DLLEXPORT PHCalibration  {
 
 public: 
-  /// 0 = error function
-  /// 1 = tanH
-  PHCalibration(int mode = 0); 
-  void setMode(int mode = 0) {fMode = mode;}
-  int getMode() {return fMode; }
-
+  PHCalibration(); 
   ~PHCalibration(); 
-
   double vcal(int iroc, int icol, int irow, double ph);
   double ph(int iroc, int icol, int irow, double vcal);
 
-  double vcalErr(int iroc, int icol, int irow, double ph);
-  double phErr(int iroc, int icol, int irow, double vcal);
-
-  double vcalTanH(int iroc, int icol, int irow, double ph);
-  double phTanH(int iroc, int icol, int irow, double vcal);
-
   void setPHParameters(std::vector<std::vector<gainPedestalParameters> > ); 
+  void setMode(std::string mode = "tanh") {fMode = mode;}
   bool initialized() {return (fParameters.size() > 0);}
+  std::string getMode() {return fMode; }
   std::string getParameters(int iroc, int icol, int irow); 
 
  private: 
-  int fMode; 
+  std::string fMode; 
   std::vector<std::vector<gainPedestalParameters> > fParameters;
   
 };
