@@ -976,6 +976,7 @@ void PixTestPhOptimization::optimiseOnMapsNew(std::map<uint8_t, int> &po_opt, st
       
       for(int ibinx=1; ibinx < hmax->GetNbinsX()+1; ibinx++){
 	for(int ibiny=1; ibiny < hmax->GetNbinsY()+1; ibiny++){
+	  //ideally, the condition would be bincontent - maxPH == 1, relaxed ( >0 && <=3)to allow a wider band for solution
 	  if(abs(hmax->GetBinContent(ibinx, ibiny) - maxPH + 2) > 1 ){
 	    hmax->SetBinContent(ibinx, ibiny, 0);
 	  }
@@ -992,7 +993,11 @@ void PixTestPhOptimization::optimiseOnMapsNew(std::map<uint8_t, int> &po_opt, st
       
       for(int ibinx=1; ibinx < hmin->GetNbinsX()+1; ibinx++){
 	for(int ibiny=1; ibiny < hmin->GetNbinsY()+1; ibiny++){
+	  //creating green bands for min and max with red interception
 	  if(hmin->GetBinContent(ibinx, ibiny) != 0 && hmax->GetBinContent(ibinx, ibiny) != 0){
+	    th2_sol[rocIds[iroc]]->SetBinContent(ibinx, ibiny, 2);
+	  }
+	  else if(hmin->GetBinContent(ibinx, ibiny) != 0 || hmax->GetBinContent(ibinx, ibiny) != 0){
 	    th2_sol[rocIds[iroc]]->SetBinContent(ibinx, ibiny, 1);
 	  }
 	}
