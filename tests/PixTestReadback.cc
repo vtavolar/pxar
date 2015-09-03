@@ -293,6 +293,7 @@ void PixTestReadback::FinalCleaning() {
 
 // ----------------------------------------------------------------------
 void PixTestReadback::doTest() {
+  TStopwatch t;
   LOG(logINFO) << "PixTestReadback::doTest() start.";
   
   CalibrateVd();
@@ -303,13 +304,15 @@ void PixTestReadback::doTest() {
   for (list<TH1*>::iterator il = fHistList.begin(); il != fHistList.end(); ++il) {
     (*il)->Draw((getHistOption(*il)).c_str()); 
   }
+  dutCalibrateOff();
   
- LOG(logINFO) << "PixTestReadback::doTest() done";
- dutCalibrateOff();
+  int seconds = t.RealTime(); 
+  LOG(logINFO) << "PixTestReadback::doTest() done, duration: " << seconds << " seconds";
 }
 
 
 void PixTestReadback::CalibrateIa(){
+  LOG(logINFO)<<"Calibration of analog current readback measurement";
   prepareDAQ();
   cacheDacs();
   //readback DAC set to 12 (i.e. Ia)
@@ -375,6 +378,7 @@ void PixTestReadback::CalibrateIa(){
 
   for(int ivana=0; ivana<npoints; ivana++){
     vana = (uint8_t)ivana*pace;
+    LOG(logINFO)<<"Scanning Vana = "<<vana;
     for(unsigned int iroc = 0; iroc < rocIds.size(); iroc++){
       LOG(logDEBUG)<<"Vana scan for ROC "<<getIdFromIdx(iroc);
       fApi->setDAC("vana", 0);
@@ -412,7 +416,7 @@ void PixTestReadback::CalibrateIa(){
 
   vector<double> rb_vanaMax(rocIds.size(), 0.);
    
-  //protection to exclude plateu from fit
+  //protection to exclude plateau from fit
   for(unsigned int iroc = 0; iroc < rocIds.size(); iroc++){
     rb_vanaMax[iroc] = hs_rbIa[iroc]->GetBinCenter(hs_rbIa[iroc]->FindFirstBinAbove(254));
 
@@ -501,6 +505,7 @@ void PixTestReadback::CalibrateIa(){
     (*il)->Draw((getHistOption(*il)).c_str()); 
   }
 
+  LOG(logINFO)<<"Restoring initial DAC settings";
   restoreDacs();
   FinalCleaning();
 }
@@ -554,6 +559,7 @@ double PixTestReadback::getCalibratedIa(unsigned int iroc){
 }
 
 void PixTestReadback::CalibrateVd(){
+  LOG(logINFO)<<"Calibration of digital voltage readback measurement";
   prepareDAQ();
   cacheDacs();
   cachePowerSettings();
@@ -628,7 +634,7 @@ void PixTestReadback::CalibrateVd(){
   for(int iVd=0; iVd<Npoints; iVd++){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VD :::::****/";
     Vd = VdMin + iVd*pace;
-    LOG(logDEBUG)<<"Digital voltage will be set to: "<<Vd;
+    LOG(logINFO)<<"Scanning digital voltage = "<<Vd;
     count=0;
     do{
       readback=daqReadback("vd", Vd, fParReadback);
@@ -708,11 +714,13 @@ void PixTestReadback::CalibrateVd(){
 
   restoreDacs();
   restorePowerSettings();
+  LOG(logINFO)<<"Restoring initial power settings";
   FinalCleaning();
 }
 
 
 void PixTestReadback::readbackVbg(){
+  LOG(logINFO)<<"Measurement of uncalibrated bandgap reference voltage";
   prepareDAQ();
   cacheDacs();
   cachePowerSettings();
@@ -795,6 +803,7 @@ void PixTestReadback::readbackVbg(){
 }
 
 vector<double> PixTestReadback::getCalibratedVbg(){
+  LOG(logINFO)<<"Applying calibration to Vbg readback measurement";
   vector<double> calVbg(fRbVbg.size(), 0.);
   string name="";
   if(fCalwVd){
@@ -824,7 +833,7 @@ vector<double> PixTestReadback::getCalibratedVbg(){
     return calVbg;
   }
   for(unsigned int iroc=0; iroc < calVbg.size(); iroc++){
-    LOG(logINFO)<<"/*/*/*/*::: ROC "<<iroc<<": uncalibrated Vbg = "<<fRbVbg[iroc]<<"calibrated Vbg = "<<calVbg[iroc]<<" :::*/*/*/*/";
+    LOG(logINFO)<<"ROC "<<iroc<<": uncalibrated Vbg = "<<fRbVbg[iroc]<<", calibrated Vbg = "<<calVbg[iroc]<<" V";
     h_vbg->Fill(getIdFromIdx(iroc), calVbg[getIdFromIdx(iroc)]);
     h_vbg_rb->Fill(getIdFromIdx(iroc), fRbVbg[getIdFromIdx(iroc)]);
   }
@@ -845,6 +854,7 @@ vector<double> PixTestReadback::getCalibratedVbg(){
 }
 
 void PixTestReadback::CalibrateVa(){
+  LOG(logINFO)<<"Calibration of analog voltage readback measurement";
   prepareDAQ();
   cacheDacs();
   cachePowerSettings();
@@ -916,7 +926,8 @@ void PixTestReadback::CalibrateVa(){
   for(int iVa=0; iVa<Npoints; iVa++){
     LOG(logDEBUG)<<"/****:::::: CALIBRATE VA :::::****/";
     Va = VaMin + iVa*pace;
-    LOG(logDEBUG)<<"Analog voltage will be set to: "<<Va;
+    LOG(logINFO)<<"Scanning analog voltage = "<<Va;
+    //    LOG(logDEBUG)<<"Analog voltage will be set to: "<<Va;
     count=0;
     do{
       readback=daqReadback("va", Va, fParReadback);
@@ -990,6 +1001,7 @@ void PixTestReadback::CalibrateVa(){
   fDisplayedHist = fHistList.begin();
   PixTest::update();
 
+  LOG(logINFO)<<"Restoring initial power settings";
   restoreDacs();
   restorePowerSettings();
   FinalCleaning();
