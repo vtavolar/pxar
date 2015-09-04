@@ -339,11 +339,11 @@ void PixTestReadback::CalibrateIa(){
     rbIa.insert(make_pair(vana, readback_allRocs));   
   }
   int count=0;
-  while(readback.size()<1 && count<10){
+  while(readback.size()<1 && count<5){
     readback=daqReadback("vana", (uint8_t)80, fParReadback);  
     LOG(logDEBUG)<<"CalibrateIa: daqReadback attempt #"<<count++;
   }
-  if(10==count){
+  if(5==count){
     LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
     return;
   }
@@ -387,8 +387,8 @@ void PixTestReadback::CalibrateIa(){
       do{
 	readback=daqReadback("vana", vana, getIdFromIdx(iroc), fParReadback);
 	LOG(logDEBUG)<<"CalibrateIa: daqReadback attempt #"<<count++<<", ROC "<<iroc<<", vana "<<(int)vana<<", readback "<<(int)readback[getIdFromIdx(iroc)];
-      }  while(readback.size()<1 && count<10);
-      if(10==count){
+      }  while(readback.size()<1 && count<5);
+      if(5==count){
 	LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
 	return;
       }
@@ -519,10 +519,10 @@ std::vector<double> PixTestReadback::getCalibratedIa(){
 
   int count=0;
 
-  while(readback.size()<1 && count<10){
+  while(readback.size()<1 && count<5){
     readback=daqReadbackIa();
   }
-  if(10==count){
+  if(5==count){
     LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
     return vector<double>();
   }
@@ -543,10 +543,10 @@ double PixTestReadback::getCalibratedIa(unsigned int iroc){
   vector<uint8_t> readback;
   int count=0;
 
-  while(readback.size()<1 && count<10){
+  while(readback.size()<1 && count<5){
     readback=daqReadbackIa();
   }
-  if(10==count){
+  if(5==count){
     LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
     return 0.;
   }
@@ -607,12 +607,12 @@ void PixTestReadback::CalibrateVd(){
 
   int count=0;
   //dry run to avoid spikes
-  while(readback.size()<1 && count<10){
+  while(readback.size()<1 && count<5){
     readback=daqReadback("vd", VdMin, fParReadback);
     LOG(logDEBUG)<<"readback size is "<<readback.size();
     count++;
   }
-  if(10==count){
+  if(5==count){
     LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
     return;
   }
@@ -639,8 +639,8 @@ void PixTestReadback::CalibrateVd(){
     do{
       readback=daqReadback("vd", Vd, fParReadback);
       count++;
-    }  while(readback.size()<1 && count<10);
-    if(10==count){
+    }  while(readback.size()<1 && count<5);
+    if(5==count){
       LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
       return;
     }
@@ -743,11 +743,11 @@ void PixTestReadback::readbackVbg(){
   }
 
   int count=0;
-  while(readback.size()<1 && count<10){
+  while(readback.size()<1 && count<5){
     readback = daqReadback("vd", VdMin, fParReadback);
     count++;
   }
-  if(10==count){
+  if(5==count){
     LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback of Vbg";
     return;
   }
@@ -766,8 +766,8 @@ void PixTestReadback::readbackVbg(){
     do{ 
       readback = daqReadback("vd", VdMin, fParReadback);
       count++;
-    }  while(readback.size()<1 && count<10);
-    if(10==count){
+    }  while(readback.size()<1 && count<5);//size < rocIds.size (i.e. enabled)?
+    if(5==count){
       LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
       return;
     }
@@ -900,12 +900,12 @@ void PixTestReadback::CalibrateVa(){
   Npoints=13;
   
   //dry run to avoid spikes
-  while(readback.size()<1 && count<10){
+  while(readback.size()<1 && count<5){
     readback=daqReadback("va", VaMin, fParReadback);
     LOG(logDEBUG)<<"readback size is "<<readback.size();
     count++;
   }
-  if(10==count){
+  if(5==count){
     LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
     return;
   }
@@ -932,8 +932,8 @@ void PixTestReadback::CalibrateVa(){
     do{
       readback=daqReadback("va", Va, fParReadback);
       count++;
-    }  while(readback.size()<1 && count<10);
-    if(10==count){
+    }  while(readback.size()<1 && count<5);
+    if(5==count){
       LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
       return;
     } 
@@ -1053,6 +1053,10 @@ vector<uint8_t> PixTestReadback::daqReadback(string dac, double vana, int8_t par
   std::vector<std::vector<uint16_t> > rb;
   rb = fApi->daqGetReadback();
   std::vector<uint8_t> rb_val;
+  
+  if(fApi->getStatistics().errors_roc_readback() != 0){
+    return rb_val;
+  }
 
   for(uint8_t i=0; i<rb.size(); i++){
     rb_val.push_back( rb[i][ rb[i].size()-1 ]&0xff ); // read the last (size-1) readback word read out for ROC i
@@ -1081,6 +1085,10 @@ std::vector<uint8_t> PixTestReadback::daqReadback(string dac, uint8_t vana, int8
   rb = fApi->daqGetReadback();
   std::vector<uint8_t> rb_val;
 
+  if(fApi->getStatistics().errors_roc_readback() != 0){
+    return rb_val;
+  }
+
   for(uint8_t i=0; i<rb.size(); i++){
     rb_val.push_back( rb[i][ rb[i].size()-1 ]&0xff ); // read the last (size-1) readback word read out for ROC i
   }
@@ -1106,6 +1114,10 @@ std::vector<uint8_t> PixTestReadback::daqReadback(string dac, uint8_t vana, unsi
   std::vector<std::vector<uint16_t> > rb;
   rb = fApi->daqGetReadback();
   std::vector<uint8_t> rb_val;
+  
+  if(fApi->getStatistics().errors_roc_readback() != 0){
+    return rb_val;
+  }
 
   for(uint8_t i=0; i<rb.size(); i++){
     rb_val.push_back( rb[i][ rb[i].size()-1 ]&0xff ); // read the last (size-1) readback word read out for ROC i
@@ -1125,6 +1137,10 @@ std::vector<uint8_t> PixTestReadback::daqReadbackIa(){
   std::vector<std::vector<uint16_t> > rb;
   rb = fApi->daqGetReadback();
   std::vector<uint8_t> rb_val;
+
+  if(fApi->getStatistics().errors_roc_readback() != 0){
+    return rb_val;
+  }
 
   for(uint8_t i=0; i<rb.size(); i++){
     rb_val.push_back( rb[i][ rb[i].size()-1 ]&0xff ); // read the last (size-1) readback word read out for ROC i
