@@ -46,7 +46,7 @@ public:
   void restorePowerSettings();
 
 private:
-
+  bool fStatus;
   uint8_t  fParReadback;
   uint16_t fParPeriod;
   

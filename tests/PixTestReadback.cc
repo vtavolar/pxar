@@ -26,6 +26,7 @@ PixTestReadback::PixTestReadback(PixSetup *a, std::string name) : PixTest(a, nam
   vector<pair<string, double> > prova1;
   fRbCal =  fPixSetup->getConfigParameters()->getReadbackCal();
 
+  fStatus=true;
   //initialize all calibration factors to 1
   vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs();
   for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
@@ -339,12 +340,14 @@ void PixTestReadback::CalibrateIa(){
     rbIa.insert(make_pair(vana, readback_allRocs));   
   }
   int count=0;
-  while(readback.size()<1 && count<5){
+  uint8_t NRocs = fApi->_dut->getNRocs(); 
+  while(readback.size()!=NRocs && count<5){
     readback=daqReadback("vana", (uint8_t)80, fParReadback);  
     LOG(logDEBUG)<<"CalibrateIa: daqReadback attempt #"<<count++;
   }
   if(5==count){
-    LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+    LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+    fStatus=false;
     return;
   }
   for(unsigned int iroc = 0; iroc < rocIds.size(); iroc++){
@@ -387,9 +390,10 @@ void PixTestReadback::CalibrateIa(){
       do{
 	readback=daqReadback("vana", vana, getIdFromIdx(iroc), fParReadback);
 	LOG(logDEBUG)<<"CalibrateIa: daqReadback attempt #"<<count++<<", ROC "<<iroc<<", vana "<<(int)vana<<", readback "<<(int)readback[getIdFromIdx(iroc)];
-      }  while(readback.size()<1 && count<5);
+      }  while(readback.size()!=NRocs && count<5);
       if(5==count){
-	LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+	LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+	fStatus=false;
 	return;
       }
       rbIa[vana][getIdFromIdx(iroc)]=readback[getIdFromIdx(iroc)];
@@ -515,15 +519,17 @@ std::vector<double> PixTestReadback::getCalibratedIa(){
   prepareDAQ();
   fParReadback=12;
 
+  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
   vector<uint8_t> readback;
 
   int count=0;
-
-  while(readback.size()<1 && count<5){
+  uint8_t NRocs = fApi->_dut->getNRocs(); 
+  while(readback.size()!=NRocs && count<5){
     readback=daqReadbackIa();
   }
   if(5==count){
-    LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+    LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+    fStatus=false;
     return vector<double>();
   }
   vector<double> calIa(readback.size(), 0.);
@@ -542,12 +548,16 @@ double PixTestReadback::getCalibratedIa(unsigned int iroc){
   fParReadback=12;
   vector<uint8_t> readback;
   int count=0;
+  vector<uint8_t> rocIds = fApi->_dut->getEnabledRocIDs(); 
+  uint8_t NRocs = fApi->_dut->getNRocs(); 
 
-  while(readback.size()<1 && count<5){
+  while(readback.size()!=NRocs && count<5){
     readback=daqReadbackIa();
+    count++;
   }
   if(5==count){
-    LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+    LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+    fStatus=false;
     return 0.;
   }
   double calIa;
@@ -607,13 +617,15 @@ void PixTestReadback::CalibrateVd(){
 
   int count=0;
   //dry run to avoid spikes
-  while(readback.size()<1 && count<5){
+  uint8_t NRocs = fApi->_dut->getNRocs(); 
+  while(readback.size()!=NRocs && count<5){
     readback=daqReadback("vd", VdMin, fParReadback);
     LOG(logDEBUG)<<"readback size is "<<readback.size();
     count++;
   }
   if(5==count){
-    LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+    LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+    fStatus=false;
     return;
   }
 
@@ -639,9 +651,10 @@ void PixTestReadback::CalibrateVd(){
     do{
       readback=daqReadback("vd", Vd, fParReadback);
       count++;
-    }  while(readback.size()<1 && count<5);
+    }  while(readback.size()!=NRocs && count<5);
     if(5==count){
-      LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+      LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+      fStatus=false;
       return;
     }
     LOG(logDEBUG)<<"Readback size :"<<(int)readback.size();
@@ -742,13 +755,15 @@ void PixTestReadback::readbackVbg(){
     VdMin=2.6;
   }
 
+  uint8_t NRocs = fApi->_dut->getNRocs(); 
   int count=0;
-  while(readback.size()<1 && count<5){
+  while(readback.size()!=NRocs && count<5){
     readback = daqReadback("vd", VdMin, fParReadback);
     count++;
   }
   if(5==count){
-    LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback of Vbg";
+    LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback of Vbg";
+    fStatus=false;
     return;
   }
 
@@ -766,9 +781,10 @@ void PixTestReadback::readbackVbg(){
     do{ 
       readback = daqReadback("vd", VdMin, fParReadback);
       count++;
-    }  while(readback.size()<1 && count<5);//size < rocIds.size (i.e. enabled)?
+    }  while(readback.size()!=NRocs && count<5);//size < rocIds.size (i.e. enabled)?
     if(5==count){
-      LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+      LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+      fStatus=false;
       return;
     }
     for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
@@ -900,13 +916,15 @@ void PixTestReadback::CalibrateVa(){
   Npoints=13;
   
   //dry run to avoid spikes
-  while(readback.size()<1 && count<5){
+  uint8_t NRocs = fApi->_dut->getNRocs(); 
+  while(readback.size()!=NRocs && count<5){
     readback=daqReadback("va", VaMin, fParReadback);
     LOG(logDEBUG)<<"readback size is "<<readback.size();
     count++;
   }
   if(5==count){
-    LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+    LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+    fStatus=false;
     return;
   }
 
@@ -932,9 +950,10 @@ void PixTestReadback::CalibrateVa(){
     do{
       readback=daqReadback("va", Va, fParReadback);
       count++;
-    }  while(readback.size()<1 && count<5);
+    }  while(readback.size()!=NRocs && count<5);
     if(5==count){
-      LOG(logINFO)<<"ERROR: no readback data received after "<<count<<" attempts. Aborting readback calibration";
+      LOG(logERROR)<<"No readback data received after "<<count<<" attempts. Aborting readback calibration";
+      fStatus=false;
       return;
     } 
     for(unsigned int iroc=0; iroc < rocIds.size(); iroc++){
@@ -1189,11 +1208,13 @@ void PixTestReadback::setVana() {
     fApi->setDAC("vana", vana, roc); // start value
 
     double ia = getCalibratedIa(roc); // [mA], just to be sure to flush usb
+    if(!fStatus)return;
     TStopwatch sw;
     sw.Start(kTRUE); // reset
     do {
       sw.Start(kFALSE); // continue
       ia = getCalibratedIa(roc); // [mA]
+      if(!fStatus)return;
     } while (sw.RealTime() < 0.1);
 
     double diff = fTargetIa + extra - (ia - i015);
@@ -1226,6 +1247,7 @@ void PixTestReadback::setVana() {
       do {
 	sw.Start(kFALSE); // continue
 	ia = getCalibratedIa(roc); // [mA]
+	if(!fStatus)return;
       }
       while( sw.RealTime() < 0.1 );
 
@@ -1276,6 +1298,7 @@ void PixTestReadback::setVana() {
   do {
     sw.Start(kFALSE); // continue
     v_ia16 = getCalibratedIa(); // [mA]
+    if(!fStatus)return;
   }
   while( sw.RealTime() < 0.1 );
 
